@@ -51,6 +51,22 @@ export default function Cart() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to generate PDF');
 
+      try {
+        const pdfResponse = await fetch(data.pdfUrl);
+        const blob = await pdfResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Mamta-Quotation-${customer.name.replace(/\\s+/g, '-')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (dlError) {
+        console.error("Direct download failed:", dlError);
+        window.open(data.pdfUrl, '_blank');
+      }
+
       setSuccessData({ pdfUrl: data.pdfUrl });
     } catch (error) {
       console.error(error);
@@ -75,14 +91,27 @@ export default function Cart() {
         <p className="text-gray-500 mb-8">The PDF has been successfully saved to the cloud.</p>
         
         <div className="space-y-4 w-full max-w-sm">
-          <a 
-            href={successData.pdfUrl} 
-            target="_blank" 
-            rel="noreferrer"
+          <button 
+            onClick={async () => {
+              try {
+                const pdfResponse = await fetch(successData.pdfUrl);
+                const blob = await pdfResponse.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Mamta-Quotation-${customer.name.replace(/\\s+/g, '-')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+              } catch (e) {
+                window.open(successData.pdfUrl, '_blank');
+              }
+            }}
             className="btn-primary w-full flex items-center justify-center gap-2"
           >
-            <FileText className="w-5 h-5" /> View PDF
-          </a>
+            <FileText className="w-5 h-5" /> Download PDF Again
+          </button>
           <button 
             onClick={handleWhatsApp}
             className="w-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
