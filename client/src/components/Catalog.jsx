@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { supabase } from '../supabase';
 import { Search, Plus, X } from 'lucide-react';
@@ -135,8 +136,8 @@ export default function Catalog() {
       </div>
 
       {/* Wattage Selection Modal */}
-      {showWattageModal && selectedProductForWattage && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      {showWattageModal && selectedProductForWattage && createPortal(
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <h3 className="font-bold text-gray-900">Select Wattage</h3>
@@ -157,7 +158,8 @@ export default function Catalog() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
