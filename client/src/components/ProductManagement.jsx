@@ -297,6 +297,11 @@ export default function ProductManagement() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Wattage Variations (comma-separated, optional)</label>
+            <input type="text" placeholder="e.g. 7W, 12W, 18W" className="input-field" value={formData.wattages} onChange={e => setFormData({...formData, wattages: e.target.value})} />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea rows="3" className="input-field" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
           </div>
