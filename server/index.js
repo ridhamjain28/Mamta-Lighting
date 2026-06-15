@@ -6,8 +6,12 @@ import puppeteer from 'puppeteer';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
@@ -20,10 +24,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const upload = multer({ storage: multer.memoryStorage() });
 
 // --- Load Logos as Base64 strings for PDF ---
-const rootDir = path.resolve(); 
 const getBase64 = (filename) => {
   try {
-    const filePath = path.join(rootDir, '..', filename);
+    const filePath = path.join(__dirname, filename);
     if (fs.existsSync(filePath)) {
       const bitmap = fs.readFileSync(filePath);
       return `data:image/png;base64,${bitmap.toString('base64')}`;
