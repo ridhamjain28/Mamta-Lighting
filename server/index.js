@@ -280,7 +280,11 @@ app.post('/api/quotation', async (req, res) => {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    try {
+      await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 10000 });
+    } catch (e) {
+      console.log('Timeout waiting for network idle, but proceeding to generate PDF anyway.');
+    }
     
     // Generate PDF with repeating headers and footers
     const pdfBuffer = await page.pdf({ 
