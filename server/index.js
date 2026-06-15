@@ -106,8 +106,33 @@ app.post('/api/quotation', async (req, res) => {
     const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
     const quoteNumber = `MAMTA-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
+    // Helper to fetch external images as Base64 to bypass headless browser blocking
+    const fetchBase64Image = async (url) => {
+      if (!url) return null;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const contentType = response.headers.get('content-type') || 'image/jpeg';
+        return `data:${contentType};base64,${buffer.toString('base64')}`;
+      } catch (e) {
+        console.error('Fetch image error:', e.message);
+        return null;
+      }
+    };
+
+    // Pre-fetch all images
+    const itemsWithBase64Images = await Promise.all(items.map(async (item) => {
+      if (item.primary_image_url) {
+        const b64 = await fetchBase64Image(item.primary_image_url);
+        return { ...item, _base64_image: b64 || item.primary_image_url };
+      }
+      return item;
+    }));
+
     // Build items HTML with the image column
-    const itemsHtml = items.map((item, index) => {
+    const itemsHtml = itemsWithBase64Images.map((item, index) => {
       const listPrice = item.base_price || 0;
       const customOverride = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
       const discountPercentage = item.discount_override || 0;
@@ -116,8 +141,8 @@ app.post('/api/quotation', async (req, res) => {
       
       const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
       const displayProductName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
-      const imageUrl = item.primary_image_url 
-        ? `<img src="${item.primary_image_url}" class="product-img" />` 
+      const imageUrl = item._base64_image 
+        ? `<img src="${item._base64_image}" class="product-img" />` 
         : (logos.na ? `<img src="${logos.na}" class="product-img" />` : '');
 
       return `
@@ -281,7 +306,7 @@ app.post('/api/quotation', async (req, res) => {
     });
     const page = await browser.newPage();
     try {
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 10000 });
+      await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 30000 });
     } catch (e) {
       console.log('Timeout waiting for network idle, but proceeding to generate PDF anyway.');
     }
