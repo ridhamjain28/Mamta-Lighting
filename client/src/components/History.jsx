@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { FileText, Clock, Search } from 'lucide-react';
+import { FileText, Clock, Search, Trash2 } from 'lucide-react';
 
 export default function History() {
   const [quotes, setQuotes] = useState([]);
@@ -31,6 +31,30 @@ export default function History() {
       setLoading(false);
     }
   }
+
+  const handleDeleteQuote = async (id, pdfUrl) => {
+    if (!window.confirm("Are you sure you want to permanently delete this quotation?")) return;
+
+    try {
+      // If there's a PDF, remove it from the storage bucket to save space
+      if (pdfUrl) {
+        const fileName = pdfUrl.split('/').pop();
+        if (fileName) {
+          await supabase.storage.from('quotations').remove([fileName]);
+        }
+      }
+
+      // Delete the record (which cascades to quotation_items if set up correctly)
+      const { error } = await supabase.from('quotations').delete().eq('id', id);
+      if (error) throw error;
+
+      // Update UI
+      setQuotes(quotes.filter(q => q.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete quotation: " + err.message);
+    }
+  };
 
   const filteredQuotes = quotes.filter(q => 
     q.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,18 +115,28 @@ export default function History() {
                     ₹{quote.grand_total ? parseFloat(quote.grand_total).toLocaleString(undefined, {minimumFractionDigits:2}) : '0.00'}
                   </td>
                   <td className="py-3 px-4 text-center">
-                    {quote.pdf_url ? (
-                      <a 
-                        href={quote.pdf_url} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-full text-xs font-medium"
+                    <div className="flex items-center justify-center gap-2">
+                      {quote.pdf_url ? (
+                        <a 
+                          href={quote.pdf_url} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-full text-xs font-medium"
+                        >
+                          <FileText className="w-3 h-3" /> View
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-xs">N/A</span>
+                      )}
+                      
+                      <button 
+                        onClick={() => handleDeleteQuote(quote.id, quote.pdf_url)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                        title="Delete Quotation"
                       >
-                        <FileText className="w-3 h-3" /> View
-                      </a>
-                    ) : (
-                      <span className="text-gray-400 text-xs">N/A</span>
-                    )}
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
