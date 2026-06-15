@@ -237,6 +237,7 @@ app.post('/api/quotation', async (req, res) => {
               <td class="text-right font-bold">Subtotal</td>
               <td class="text-right font-bold">${parseFloat(subtotal).toFixed(2)}</td>
             </tr>
+            ${gst_included ? `
             <tr>
               <td style="border-bottom: none; border-top: none; border-left: none;"></td>
               <td style="border-bottom: none; border-top: none;"></td>
@@ -246,6 +247,7 @@ app.post('/api/quotation', async (req, res) => {
               <td class="text-right font-bold">18% GST</td>
               <td class="text-right font-bold">${parseFloat(gst_amount).toFixed(2)}</td>
             </tr>
+            ` : ''}
             <tr style="background-color: #d9ead3;">
               <td style="border-top: none; border-left: none; background-color: #fff;"></td>
               <td style="border-top: none; background-color: #fff;"></td>
