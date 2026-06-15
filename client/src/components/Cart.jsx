@@ -205,18 +205,20 @@ export default function Cart() {
               <div className="flex items-center gap-4 text-sm">
                 {/* Quantity */}
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
-                  <button onClick={() => updateItemQuantity(item.cartItemId || item.id, item.quantity - 1)} className="p-2 hover:bg-gray-200"><Minus className="w-3 h-3" /></button>
+                  <button onClick={() => updateItemQuantity(item.cartItemId || item.id, Math.max(1, (Number(item.quantity) || 0) - 1))} className="p-2 hover:bg-gray-200"><Minus className="w-3 h-3" /></button>
                   <input 
                     type="number" 
                     min="1"
-                    className="w-12 text-center font-medium bg-transparent focus:outline-none focus:bg-white"
-                    value={item.quantity === 0 ? '' : item.quantity}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      updateItemQuantity(item.cartItemId || item.id, isNaN(val) ? 1 : Math.max(1, val));
+                    className="w-12 text-center font-medium bg-transparent focus:outline-none focus:bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    value={item.quantity === '' ? '' : item.quantity}
+                    onChange={(e) => updateItemQuantity(item.cartItemId || item.id, e.target.value)}
+                    onBlur={(e) => {
+                      if (e.target.value === '' || e.target.value === '0') {
+                        updateItemQuantity(item.cartItemId || item.id, 1);
+                      }
                     }}
                   />
-                  <button onClick={() => updateItemQuantity(item.cartItemId || item.id, item.quantity + 1)} className="p-2 hover:bg-gray-200"><Plus className="w-3 h-3" /></button>
+                  <button onClick={() => updateItemQuantity(item.cartItemId || item.id, (Number(item.quantity) || 0) + 1)} className="p-2 hover:bg-gray-200"><Plus className="w-3 h-3" /></button>
                 </div>
 
                 {/* Price & Discount */}

@@ -49,7 +49,7 @@ export const useQuoteStore = create((set, get) => ({
   }),
 
   updateItemQuantity: (cartItemId, quantity) => set((state) => ({
-    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, quantity: Math.max(1, quantity) } : item)
+    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, quantity: quantity === '' ? '' : Math.max(0, Number(quantity)) } : item)
   })),
 
   updateItemPrice: (cartItemId, price) => set((state) => ({
