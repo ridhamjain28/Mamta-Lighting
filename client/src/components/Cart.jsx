@@ -148,7 +148,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white shadow-[-4px_0_15px_rgba(0,0,0,0.05)] relative z-20">
+    <div className="h-full flex flex-col bg-white shadow-[-4px_0_15px_rgba(0,0,0,0.05)] relative z-10">
       
       {/* Customer Details Header */}
       <div className="p-6 border-b border-gray-200 bg-slate-50">

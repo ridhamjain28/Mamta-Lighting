@@ -52,7 +52,7 @@ function App() {
         {activeTab === 'catalog' && (
           <>
             {/* LEFT PANEL: PRODUCT DISCOVERY */}
-            <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-10">
+            <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
               <Catalog />
             </div>
 
