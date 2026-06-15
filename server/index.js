@@ -99,7 +99,8 @@ app.post('/api/quotation', async (req, res) => {
       discount_amount, 
       gst_amount, 
       grand_total,
-      gst_included
+      gst_included,
+      hide_list_price
     } = req.body;
 
     const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
@@ -125,7 +126,7 @@ app.post('/api/quotation', async (req, res) => {
           <td class="text-center">${imageUrl}</td>
           <td class="font-bold">${displayProductName}</td>
           <td class="text-center font-bold">${item.quantity}</td>
-          <td class="text-right font-bold">${listPrice.toFixed(2)}</td>
+          ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
           <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
           <td class="text-right font-bold">${total.toFixed(2)}</td>
         </tr>
@@ -133,7 +134,7 @@ app.post('/api/quotation', async (req, res) => {
     }).join('');
 
     // One empty row between items and totals
-    let emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    let emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td><td></td>${hide_list_price ? '' : '<td></td>'}<td></td><td></td></tr>`;
 
     // Puppeteer Header Template
     const headerTemplate = `
@@ -210,10 +211,10 @@ app.post('/api/quotation', async (req, res) => {
           <thead>
             <tr>
               <th width="5%">S.No</th>
-              <th width="12%">Image</th>
+              <th width="${hide_list_price ? '24%' : '12%'}">Image</th>
               <th width="35%">Product</th>
               <th width="8%">Qty</th>
-              <th width="12%">List Price</th>
+              ${hide_list_price ? '' : '<th width="12%">List Price</th>'}
               <th width="12%">Net Price</th>
               <th width="16%">Total</th>
             </tr>
@@ -226,7 +227,7 @@ app.post('/api/quotation', async (req, res) => {
               <td style="border-bottom: none;"></td>
               <td style="border-bottom: none;"></td>
               <td style="border-bottom: none;"></td>
-              <td style="border-bottom: none;"></td>
+              ${hide_list_price ? '' : '<td style="border-bottom: none;"></td>'}
               <td class="text-right font-bold">Subtotal</td>
               <td class="text-right font-bold">${parseFloat(subtotal).toFixed(2)}</td>
             </tr>
@@ -236,7 +237,7 @@ app.post('/api/quotation', async (req, res) => {
               <td style="border-bottom: none; border-top: none;"></td>
               <td style="border-bottom: none; border-top: none;"></td>
               <td style="border-bottom: none; border-top: none;"></td>
-              <td style="border-bottom: none; border-top: none;"></td>
+              ${hide_list_price ? '' : '<td style="border-bottom: none; border-top: none;"></td>'}
               <td class="text-right font-bold">18% GST</td>
               <td class="text-right font-bold">${parseFloat(gst_amount).toFixed(2)}</td>
             </tr>
@@ -246,9 +247,9 @@ app.post('/api/quotation', async (req, res) => {
               <td style="border-top: none; background-color: #fff;"></td>
               <td style="border-top: none; background-color: #fff;"></td>
               <td style="border-top: none; background-color: #fff;"></td>
-              <td style="border-top: none; background-color: #fff;"></td>
+              ${hide_list_price ? '' : '<td style="border-top: none; background-color: #fff;"></td>'}
               <td class="text-right font-bold">Total</td>
-              <td class="text-right font-bold">${Math.round(grand_total)}</td>
+              <td class="text-right font-bold">${Math.round(grand_total).toLocaleString()}</td>
             </tr>
           </tbody>
         </table>

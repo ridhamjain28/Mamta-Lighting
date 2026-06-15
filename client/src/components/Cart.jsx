@@ -16,6 +16,8 @@ export default function Cart() {
     setGlobalDiscount, 
     gstIncluded, 
     toggleGst,
+    hideListPrice,
+    toggleHideListPrice,
     getTotals,
     clearCart
   } = useQuoteStore();
@@ -58,7 +60,8 @@ export default function Cart() {
           discount_amount,
           gst_amount,
           grand_total,
-          gst_included: gstIncluded
+          gst_included: gstIncluded,
+          hide_list_price: hideListPrice
         })
       });
 
@@ -269,6 +272,17 @@ export default function Cart() {
             </label>
           </div>
           <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-gray-700 font-medium cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                checked={hideListPrice}
+                onChange={(e) => toggleHideListPrice(e.target.checked)}
+              />
+              Hide List Price on PDF
+            </label>
+          </div>
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
             <span className="text-gray-700 font-medium">Default Discount (%)</span>
             <input 
               type="number" 

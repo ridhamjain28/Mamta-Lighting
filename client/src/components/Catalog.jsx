@@ -10,24 +10,29 @@ export default function Catalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const addItem = useQuoteStore(state => state.addItem);
 
-  const [showWattageModal, setShowWattageModal] = useState(false);
-  const [selectedProductForWattage, setSelectedProductForWattage] = useState(null);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedProductForVariant, setSelectedProductForVariant] = useState(null);
 
   const handleAddToCartClick = (product) => {
-    if (product.wattages && product.wattages.trim() !== '') {
-      setSelectedProductForWattage(product);
-      setShowWattageModal(true);
+    if (product.variants && product.variants.length > 0) {
+      setSelectedProductForVariant(product);
+      setShowVariantModal(true);
     } else {
       addItem(product);
     }
   };
 
-  const handleWattageSelect = (wattage) => {
-    if (selectedProductForWattage) {
-      addItem({ ...selectedProductForWattage, selected_wattage: wattage.trim() });
+  const handleVariantSelect = (variant) => {
+    if (selectedProductForVariant) {
+      addItem({ 
+        ...selectedProductForVariant, 
+        selected_wattage: variant.name.trim(),
+        base_price: Number(variant.price) || 0,
+        custom_price_override: Number(variant.price) || 0
+      });
     }
-    setShowWattageModal(false);
-    setSelectedProductForWattage(null);
+    setShowVariantModal(false);
+    setSelectedProductForVariant(null);
   };
 
   useEffect(() => {
@@ -135,24 +140,25 @@ export default function Catalog() {
         )}
       </div>
 
-      {/* Wattage Selection Modal */}
-      {showWattageModal && selectedProductForWattage && createPortal(
+      {/* Variant Selection Modal */}
+      {showVariantModal && selectedProductForVariant && createPortal(
         <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-              <h3 className="font-bold text-gray-900">Select Wattage</h3>
-              <button onClick={() => setShowWattageModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
+              <h3 className="font-bold text-gray-900">Select Variation</h3>
+              <button onClick={() => setShowVariantModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
             </div>
             <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">Please select a wattage for <strong>{selectedProductForWattage.name}</strong>:</p>
-              <div className="grid grid-cols-2 gap-3">
-                {selectedProductForWattage.wattages.split(',').map((w, idx) => (
+              <p className="text-sm text-gray-600 mb-4">Please select an option for <strong>{selectedProductForVariant.name}</strong>:</p>
+              <div className="grid grid-cols-1 gap-3">
+                {selectedProductForVariant.variants.map((v, idx) => (
                   <button
                     key={idx}
-                    onClick={() => handleWattageSelect(w)}
-                    className="py-2 px-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-gray-700 font-medium transition-colors"
+                    onClick={() => handleVariantSelect(v)}
+                    className="py-3 px-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 flex items-center justify-between transition-colors"
                   >
-                    {w.trim()}
+                    <span className="font-medium text-gray-800">{v.name.trim()}</span>
+                    <span className="font-bold text-blue-600">₹{Number(v.price).toLocaleString()}</span>
                   </button>
                 ))}
               </div>

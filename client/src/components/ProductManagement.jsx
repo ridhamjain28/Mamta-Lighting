@@ -17,7 +17,7 @@ export default function ProductManagement() {
     category_id: '',
     base_price: '',
     description: '',
-    wattages: '',
+    variants: [],
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
@@ -64,7 +64,7 @@ export default function ProductManagement() {
       category_id: prod.category_id || '',
       base_price: prod.base_price || '',
       description: prod.description || '',
-      wattages: prod.wattages || ''
+      variants: prod.variants || []
     });
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -157,7 +157,7 @@ export default function ProductManagement() {
         category_id: formData.category_id ? parseInt(formData.category_id) : null,
         base_price: parseFloat(formData.base_price) || 0,
         description: formData.description,
-        wattages: formData.wattages
+        variants: formData.variants
       };
 
       if (primary_image_url !== undefined) {
@@ -294,11 +294,74 @@ export default function ProductManagement() {
               </label>
               <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Wattage Variations (comma-separated, optional)</label>
-            <input type="text" placeholder="e.g. 7W, 12W, 18W" className="input-field" value={formData.wattages} onChange={e => setFormData({...formData, wattages: e.target.value})} />
+            
+            {/* Product Variations */}
+            <div className="md:col-span-2 mt-4 p-5 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-bold text-gray-800">Product Variations</h3>
+                  <p className="text-xs text-gray-500">Add variations like wattages (7W, 12W) and their custom prices.</p>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setFormData({...formData, variants: [...formData.variants, { name: '', price: '' }]})}
+                  className="bg-white border border-gray-300 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-50 flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Add Variation
+                </button>
+              </div>
+              
+              {formData.variants.length > 0 ? (
+                <div className="space-y-3">
+                  {formData.variants.map((variant, index) => (
+                    <div key={index} className="flex gap-3 items-start">
+                      <div className="flex-1">
+                        <input 
+                          type="text" 
+                          placeholder="Name (e.g. 7W)" 
+                          className="input-field py-2"
+                          value={variant.name}
+                          onChange={(e) => {
+                            const newVariants = [...formData.variants];
+                            newVariants[index].name = e.target.value;
+                            setFormData({...formData, variants: newVariants});
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 relative">
+                        <span className="absolute left-3 top-2.5 text-gray-500 font-medium">₹</span>
+                        <input 
+                          type="number" 
+                          placeholder="Custom Price" 
+                          className="input-field py-2 pl-7"
+                          value={variant.price}
+                          onChange={(e) => {
+                            const newVariants = [...formData.variants];
+                            newVariants[index].price = e.target.value;
+                            setFormData({...formData, variants: newVariants});
+                          }}
+                        />
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const newVariants = [...formData.variants];
+                          newVariants.splice(index, 1);
+                          setFormData({...formData, variants: newVariants});
+                        }}
+                        className="bg-red-50 text-red-600 p-2.5 rounded-md border border-red-100 hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic text-center py-4 bg-white rounded border border-dashed border-gray-300">
+                  No variations added. The product will use the Base Price.
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
