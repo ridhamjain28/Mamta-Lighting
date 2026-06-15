@@ -3,6 +3,7 @@ import Catalog from './components/Catalog';
 import Cart from './components/Cart';
 import ProductManagement from './components/ProductManagement';
 import History from './components/History';
+import ToastContainer from './components/ToastContainer';
 import { PackageSearch, FileText, Settings, History as HistoryIcon } from 'lucide-react';
 
 function App() {
@@ -79,6 +80,9 @@ function App() {
         )}
 
       </main>
+      
+      {/* Global Toast Notifications */}
+      <ToastContainer />
     </div>
   );
 }

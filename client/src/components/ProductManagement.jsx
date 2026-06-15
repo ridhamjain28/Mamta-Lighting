@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useToastStore } from '../store/useToastStore';
 import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon, Tag, Bookmark } from 'lucide-react';
 
 export default function ProductManagement() {
@@ -24,6 +25,7 @@ export default function ProductManagement() {
   const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
   const [newCategory, setNewCategory] = useState('');
   const [newBrand, setNewBrand] = useState('');
+  const { addToast } = useToastStore();
 
   useEffect(() => {
     fetchMetadata();
@@ -79,7 +81,7 @@ export default function ProductManagement() {
       if (error) throw error;
       fetchProducts();
     } catch (e) {
-      alert("Error deleting product: " + e.message);
+      addToast("Error deleting product: " + e.message, "error");
     }
   };
 
@@ -163,18 +165,18 @@ export default function ProductManagement() {
       if (editingId) {
         const { error } = await supabase.from('products').update(payload).eq('id', editingId);
         if (error) throw error;
-        alert("Product updated successfully!");
+        addToast("Product updated successfully!", "success");
       } else {
         const { error } = await supabase.from('products').insert([payload]);
         if (error) throw error;
-        alert("Product added successfully!");
+        addToast("Product added successfully!", "success");
       }
 
       cancelEdit();
       fetchProducts();
     } catch (error) {
       console.error(error);
-      alert("Error saving product: " + error.message);
+      addToast("Error saving product: " + error.message, "error");
     } finally {
       setLoading(false);
     }

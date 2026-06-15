@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { useToastStore } from '../store/useToastStore';
 import { Trash2, Plus, Minus, FileText, Send, CheckCircle2 } from 'lucide-react';
 
 export default function Cart() {
@@ -21,12 +22,13 @@ export default function Cart() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const { addToast } = useToastStore();
 
   const { subtotal, discount_amount, gst_amount, grand_total } = getTotals();
 
   const handleGeneratePdf = async () => {
-    if (items.length === 0) return alert("Cart is empty");
-    if (!customer.name) return alert("Please enter a customer name");
+    if (items.length === 0) return addToast("Cart is empty", "error");
+    if (!customer.name) return addToast("Please enter a customer name", "error");
 
     setIsGenerating(true);
     setSuccessData(null);
@@ -70,7 +72,7 @@ export default function Cart() {
       setSuccessData({ pdfUrl: data.pdfUrl });
     } catch (error) {
       console.error(error);
-      alert("Error generating quotation: " + error.message);
+      addToast("Error generating quotation: " + error.message, "error");
     } finally {
       setIsGenerating(false);
     }
