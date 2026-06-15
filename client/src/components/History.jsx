@@ -56,6 +56,25 @@ export default function History() {
     }
   };
 
+  const handleDownloadPdf = async (pdfUrl, quoteNumber) => {
+    try {
+      const response = await fetch(pdfUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${quoteNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Direct download failed:", err);
+      // Fallback if browser blocks silent download
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
   const filteredQuotes = quotes.filter(q => 
     q.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     q.phone_number?.includes(searchTerm) ||
@@ -117,14 +136,12 @@ export default function History() {
                   <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-2">
                       {quote.pdf_url ? (
-                        <a 
-                          href={quote.pdf_url} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-full text-xs font-medium"
+                        <button 
+                          onClick={() => handleDownloadPdf(quote.pdf_url, quote.quote_number)}
+                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-full text-xs font-medium cursor-pointer"
                         >
-                          <FileText className="w-3 h-3" /> View
-                        </a>
+                          <FileText className="w-3 h-3" /> Download
+                        </button>
                       ) : (
                         <span className="text-gray-400 text-xs">N/A</span>
                       )}
