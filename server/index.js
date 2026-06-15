@@ -46,6 +46,18 @@ const logos = {
 };
 // --------------------------------------------
 
+app.get('/api/keepalive', async (req, res) => {
+  try {
+    // Simple query to keep Supabase project active
+    const { data, error } = await supabase.from('categories').select('id').limit(1);
+    if (error) throw error;
+    res.json({ status: 'active', message: 'Supabase and Render are awake!' });
+  } catch (error) {
+    console.error('Keepalive Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No image provided' });
