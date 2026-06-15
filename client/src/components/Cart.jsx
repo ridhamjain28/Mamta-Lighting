@@ -189,23 +189,25 @@ export default function Cart() {
           </div>
         ) : (
           items.map(item => (
-            <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm relative group">
+            <div key={item.cartItemId || item.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm relative group">
               <button 
-                onClick={() => removeItem(item.id)}
+                onClick={() => removeItem(item.cartItemId || item.id)}
                 className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
               
-              <div className="font-semibold text-gray-800 mb-1 pr-6">{item.name}</div>
+              <h4 className="font-semibold text-gray-900 pr-6">
+                {item.name} {item.selected_wattage && <span className="text-blue-600 font-bold ml-1">({item.selected_wattage})</span>}
+              </h4>
               <div className="text-xs text-gray-500 mb-3">Model: {item.model_number || 'N/A'}</div>
               
               <div className="flex items-center gap-4 text-sm">
                 {/* Quantity */}
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
-                  <button onClick={() => updateItemQuantity(item.id, item.quantity - 1)} className="p-2 hover:bg-gray-200"><Minus className="w-3 h-3" /></button>
+                  <button onClick={() => updateItemQuantity(item.cartItemId || item.id, item.quantity - 1)} className="p-2 hover:bg-gray-200"><Minus className="w-3 h-3" /></button>
                   <span className="w-8 text-center font-medium">{item.quantity}</span>
-                  <button onClick={() => updateItemQuantity(item.id, item.quantity + 1)} className="p-2 hover:bg-gray-200"><Plus className="w-3 h-3" /></button>
+                  <button onClick={() => updateItemQuantity(item.cartItemId || item.id, item.quantity + 1)} className="p-2 hover:bg-gray-200"><Plus className="w-3 h-3" /></button>
                 </div>
 
                 {/* Price & Discount */}
@@ -215,8 +217,8 @@ export default function Cart() {
                     <input 
                       type="number" 
                       className="border border-gray-300 rounded p-1 w-24 text-right"
-                      value={item.custom_price_override}
-                      onChange={(e) => updateItemPrice(item.id, e.target.value)}
+                      value={item.custom_price_override !== null ? item.custom_price_override : item.base_price}
+                      onChange={(e) => updateItemPrice(item.cartItemId || item.id, e.target.value)}
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -226,7 +228,7 @@ export default function Cart() {
                       className="border border-gray-300 rounded p-1 w-24 text-right text-red-600"
                       value={item.discount_override === '' ? '' : item.discount_override}
                       placeholder="Default"
-                      onChange={(e) => updateItemDiscount(item.id, e.target.value)}
+                      onChange={(e) => updateItemDiscount(item.cartItemId || item.id, e.target.value)}
                     />
                   </div>
                 </div>

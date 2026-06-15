@@ -17,6 +17,7 @@ export default function ProductManagement() {
     category_id: '',
     base_price: '',
     description: '',
+    wattages: '',
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
@@ -62,7 +63,8 @@ export default function ProductManagement() {
       brand_id: prod.brand_id || '',
       category_id: prod.category_id || '',
       base_price: prod.base_price || '',
-      description: prod.description || ''
+      description: prod.description || '',
+      wattages: prod.wattages || ''
     });
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -154,7 +156,8 @@ export default function ProductManagement() {
         brand_id: formData.brand_id ? parseInt(formData.brand_id) : null,
         category_id: formData.category_id ? parseInt(formData.category_id) : null,
         base_price: parseFloat(formData.base_price) || 0,
-        description: formData.description
+        description: formData.description,
+        wattages: formData.wattages
       };
 
       if (primary_image_url !== undefined) {

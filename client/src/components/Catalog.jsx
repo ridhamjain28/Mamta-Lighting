@@ -1,13 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { supabase } from '../supabase';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, X } from 'lucide-react';
 
 export default function Catalog() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const addItem = useQuoteStore(state => state.addItem);
+
+  const [showWattageModal, setShowWattageModal] = useState(false);
+  const [selectedProductForWattage, setSelectedProductForWattage] = useState(null);
+
+  const handleAddToCartClick = (product) => {
+    if (product.wattages && product.wattages.trim() !== '') {
+      setSelectedProductForWattage(product);
+      setShowWattageModal(true);
+    } else {
+      addItem(product);
+    }
+  };
+
+  const handleWattageSelect = (wattage) => {
+    if (selectedProductForWattage) {
+      addItem({ ...selectedProductForWattage, selected_wattage: wattage.trim() });
+    }
+    setShowWattageModal(false);
+    setSelectedProductForWattage(null);
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -100,7 +120,7 @@ export default function Catalog() {
                   <div className="mt-auto pt-4 flex items-center justify-between">
                     <span className="font-bold text-blue-600">₹{product.base_price.toLocaleString()}</span>
                     <button 
-                      onClick={() => addItem(product)}
+                      onClick={() => handleAddToCartClick(product)}
                       className="bg-gray-100 hover:bg-blue-600 hover:text-white p-2 rounded-lg transition-colors text-gray-700"
                       title="Add to Quote"
                     >
@@ -113,6 +133,32 @@ export default function Catalog() {
           </div>
         )}
       </div>
+
+      {/* Wattage Selection Modal */}
+      {showWattageModal && selectedProductForWattage && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h3 className="font-bold text-gray-900">Select Wattage</h3>
+              <button onClick={() => setShowWattageModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Please select a wattage for <strong>{selectedProductForWattage.name}</strong>:</p>
+              <div className="grid grid-cols-2 gap-3">
+                {selectedProductForWattage.wattages.split(',').map((w, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleWattageSelect(w)}
+                    className="py-2 px-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-gray-700 font-medium transition-colors"
+                  >
+                    {w.trim()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

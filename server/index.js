@@ -114,6 +114,7 @@ app.post('/api/quotation', async (req, res) => {
       const total = netPrice * item.quantity;
       
       const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
+      const displayProductName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
       const imageUrl = item.primary_image_url 
         ? `<img src="${item.primary_image_url}" class="product-img" />` 
         : (logos.na ? `<img src="${logos.na}" class="product-img" />` : '');
@@ -122,7 +123,7 @@ app.post('/api/quotation', async (req, res) => {
         <tr>
           <td class="text-center font-bold">${index + 1}</td>
           <td class="text-center">${imageUrl}</td>
-          <td class="font-bold">${productName}</td>
+          <td class="font-bold">${displayProductName}</td>
           <td class="text-center font-bold">${item.quantity}</td>
           <td class="text-right font-bold">${listPrice.toFixed(2)}</td>
           <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
@@ -147,10 +148,19 @@ app.post('/api/quotation', async (req, res) => {
       </div>
     `;
 
-    // Puppeteer Footer Template (Now just a simple page number)
+    // Puppeteer Footer Template (Now includes brand logos on every page)
     const footerTemplate = `
-      <div style="font-family: Arial, sans-serif; font-size: 10px; width: 100%; text-align: right; padding: 0 15mm; color: #666;">
-        Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+      <div style="font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; padding: 0 15mm; -webkit-print-color-adjust: exact;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          ${logos.havells ? `<img src="${logos.havells}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
+          ${logos.norisys ? `<img src="${logos.norisys}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
+          ${logos.beton ? `<img src="${logos.beton}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">BETON</span>`}
+          ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
+          ${logos.finolex ? `<img src="${logos.finolex}" style="height: 35px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
+        </div>
+        <div style="font-size: 10px; width: 100%; text-align: right; color: #666; padding-top: 5px; border-top: 1px solid #eee;">
+          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+        </div>
       </div>
     `;
 
@@ -243,7 +253,7 @@ app.post('/api/quotation', async (req, res) => {
           </tbody>
         </table>
 
-        <!-- Terms and conditions and brands appended at the end of the document -->
+        <!-- Terms and conditions appended at the end of the document -->
         <div style="page-break-inside: avoid; margin-top: 40px; padding-bottom: 20px;">
           <div style="font-size: 11px; line-height: 1.5; margin-bottom: 20px;">
             <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms & Conditions:</h4>
@@ -255,13 +265,6 @@ app.post('/api/quotation', async (req, res) => {
               <li>This is inclusive of all the charges (GST, Freight Charges if any).</li>
             </ol>
             <div style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 12px;">Looking Forward To Your Valuable Order!</div>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px;">
-            ${logos.havells ? `<img src="${logos.havells}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
-            ${logos.norisys ? `<img src="${logos.norisys}" style="height: 65px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
-            ${logos.beton ? `<img src="${logos.beton}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">BETON</span>`}
-            ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
-            ${logos.finolex ? `<img src="${logos.finolex}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
           </div>
         </div>
 
@@ -287,7 +290,7 @@ app.post('/api/quotation', async (req, res) => {
       footerTemplate: footerTemplate,
       margin: { 
         top: '180px',    
-        bottom: '60px', 
+        bottom: '120px', 
         right: '15mm', 
         left: '15mm' 
       }

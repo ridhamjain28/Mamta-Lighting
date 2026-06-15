@@ -21,33 +21,47 @@ export const useQuoteStore = create((set, get) => ({
   toggleGst: (included) => set({ gstIncluded: included }),
 
   addItem: (product) => set((state) => {
-    const exists = state.items.find(item => item.id === product.id);
+    // Treat different wattages of the same product as different cart items
+    const compositeId = product.selected_wattage ? `${product.id}-${product.selected_wattage}` : product.id;
+    
+    const exists = state.items.find(item => {
+      const itemCompositeId = item.selected_wattage ? `${item.id}-${item.selected_wattage}` : item.id;
+      return itemCompositeId === compositeId;
+    });
+
     if (exists) {
       return { 
-        items: state.items.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        ) 
+        items: state.items.map(item => {
+          const itemCompositeId = item.selected_wattage ? `${item.id}-${item.selected_wattage}` : item.id;
+          return itemCompositeId === compositeId ? { ...item, quantity: item.quantity + 1 } : item;
+        }) 
       };
     }
     return { 
-      items: [...state.items, { ...product, quantity: 1, discount_override: '', custom_price_override: product.base_price }] 
+      items: [...state.items, { 
+        ...product, 
+        cartItemId: compositeId, // We can store a unique cart item ID
+        quantity: 1, 
+        discount_override: '', 
+        custom_price_override: product.base_price 
+      }] 
     };
   }),
 
-  updateItemQuantity: (id, quantity) => set((state) => ({
-    items: state.items.map(item => item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item)
+  updateItemQuantity: (cartItemId, quantity) => set((state) => ({
+    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, quantity: Math.max(1, quantity) } : item)
   })),
 
-  updateItemPrice: (id, price) => set((state) => ({
-    items: state.items.map(item => item.id === id ? { ...item, custom_price_override: Number(price) } : item)
+  updateItemPrice: (cartItemId, price) => set((state) => ({
+    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, custom_price_override: Number(price) } : item)
   })),
 
-  updateItemDiscount: (id, discount) => set((state) => ({
-    items: state.items.map(item => item.id === id ? { ...item, discount_override: discount === '' ? '' : Number(discount) } : item)
+  updateItemDiscount: (cartItemId, discount) => set((state) => ({
+    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, discount_override: discount === '' ? '' : Number(discount) } : item)
   })),
 
-  removeItem: (id) => set((state) => ({
-    items: state.items.filter(item => item.id !== id)
+  removeItem: (cartItemId) => set((state) => ({
+    items: state.items.filter(item => (item.cartItemId || item.id) !== cartItemId)
   })),
 
   clearCart: () => set({ items: [], customer: { name: '', phone: '', project: '' }, globalDiscount: 0, gstIncluded: false }),
