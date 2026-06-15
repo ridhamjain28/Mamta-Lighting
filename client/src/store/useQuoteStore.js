@@ -59,14 +59,15 @@ export const useQuoteStore = create((set, get) => ({
     // Subtotal calculates the sum after applying individual item percentage discounts
     const subtotal = items.reduce((acc, item) => {
       const price = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
-      const discountPercentage = item.discount_override || 0;
-      const finalPrice = price - (price * (discountPercentage / 100));
+      const effectiveDiscount = (item.discount_override !== '' && item.discount_override !== null) 
+        ? Number(item.discount_override) 
+        : (Number(globalDiscount) || 0);
+      const finalPrice = price - (price * (effectiveDiscount / 100));
       return acc + (finalPrice * item.quantity);
     }, 0);
 
-    // Global discount is now a percentage applied to the subtotal
-    const discountAmount = subtotal * (globalDiscount / 100);
-    const afterDiscount = Math.max(0, subtotal - discountAmount);
+    // The discount is now applied inline to each product, so no global subtraction is needed
+    const afterDiscount = subtotal;
     
     // Default GST is 18%.
     const gstAmount = gstIncluded ? afterDiscount * 0.18 : 0;
@@ -74,7 +75,7 @@ export const useQuoteStore = create((set, get) => ({
 
     return {
       subtotal,
-      discount_amount: discountAmount,
+      discount_amount: 0,
       gst_amount: gstAmount,
       grand_total: grandTotal
     };

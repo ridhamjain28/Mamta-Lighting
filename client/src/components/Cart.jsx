@@ -34,6 +34,13 @@ export default function Cart() {
     setSuccessData(null);
 
     try {
+      const itemsWithEffectiveDiscount = items.map(item => ({
+        ...item,
+        discount_override: (item.discount_override !== '' && item.discount_override !== null) 
+          ? Number(item.discount_override) 
+          : (Number(globalDiscount) || 0)
+      }));
+
       const response = await fetch(import.meta.env.VITE_API_URL + '/api/quotation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,7 +48,7 @@ export default function Cart() {
           customer_name: customer.name,
           customer_phone: customer.phone,
           project_name: customer.project,
-          items,
+          items: itemsWithEffectiveDiscount,
           subtotal,
           discount_amount,
           gst_amount,
@@ -220,7 +227,7 @@ export default function Cart() {
 
                 {/* Total */}
                 <div className="text-right font-bold text-gray-800">
-                  ₹{((item.custom_price_override - (item.custom_price_override * ((item.discount_override || 0) / 100))) * item.quantity).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                  ₹{((item.custom_price_override - (item.custom_price_override * (((item.discount_override !== '' && item.discount_override !== null) ? Number(item.discount_override) : (Number(globalDiscount) || 0)) / 100))) * item.quantity).toLocaleString(undefined, {minimumFractionDigits: 2})}
                 </div>
               </div>
             </div>
@@ -243,7 +250,7 @@ export default function Cart() {
             </label>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-700 font-medium">Extra Discount (%)</span>
+            <span className="text-gray-700 font-medium">Default Discount (%)</span>
             <input 
               type="number" 
               className="border border-gray-300 rounded-md p-1.5 w-24 text-right font-medium text-red-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -259,15 +266,9 @@ export default function Cart() {
       <div className="p-6 border-t border-gray-200 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
         <div className="space-y-1 mb-4">
           <div className="flex justify-between text-gray-500 text-sm">
-            <span>Subtotal</span>
+            <span>Subtotal (After Discounts)</span>
             <span>₹{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
           </div>
-          {discount_amount > 0 && (
-            <div className="flex justify-between text-red-500 text-sm">
-              <span>Discount ({globalDiscount}%)</span>
-              <span>- ₹{discount_amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-            </div>
-          )}
           {gstIncluded && (
             <div className="flex justify-between text-gray-500 text-sm">
               <span>GST (18%)</span>
