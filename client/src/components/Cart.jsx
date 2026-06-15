@@ -230,7 +230,7 @@ export default function Cart() {
                     <span className="text-gray-500 w-12 text-xs">Price:</span>
                     <input 
                       type="number" 
-                      className="border border-gray-300 rounded p-1 w-24 text-right"
+                      className="border border-gray-300 rounded p-1 w-24 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={item.custom_price_override !== null ? item.custom_price_override : item.base_price}
                       onChange={(e) => updateItemPrice(item.cartItemId || item.id, e.target.value)}
                     />
@@ -239,7 +239,7 @@ export default function Cart() {
                     <span className="text-gray-500 w-16 text-xs">Disc (%):</span>
                     <input 
                       type="number" 
-                      className="border border-gray-300 rounded p-1 w-24 text-right text-red-600"
+                      className="border border-gray-300 rounded p-1 w-24 text-right text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={item.discount_override === '' ? '' : item.discount_override}
                       placeholder="Default"
                       onChange={(e) => updateItemDiscount(item.cartItemId || item.id, e.target.value)}
@@ -286,7 +286,7 @@ export default function Cart() {
             <span className="text-gray-700 font-medium">Default Discount (%)</span>
             <input 
               type="number" 
-              className="border border-gray-300 rounded-md p-1.5 w-24 text-right font-medium text-red-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="border border-gray-300 rounded-md p-1.5 w-24 text-right font-medium text-red-600 focus:ring-2 focus:ring-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               value={globalDiscount || ''}
               onChange={(e) => setGlobalDiscount(e.target.value)}
               placeholder="0.00"
