@@ -254,8 +254,8 @@ app.post('/api/quotation', async (req, res) => {
         </table>
 
         <!-- Terms and conditions appended at the end of the document -->
-        <div style="page-break-inside: avoid; margin-top: 40px; padding-bottom: 20px;">
-          <div style="font-size: 11px; line-height: 1.5; margin-bottom: 20px;">
+        <div style="page-break-inside: avoid; margin-top: 15px; padding-bottom: 0px;">
+          <div style="font-size: 11px; line-height: 1.5; margin-bottom: 10px;">
             <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms & Conditions:</h4>
             <ol style="padding-left: 20px; margin: 0;">
               <li>Prices are subject to change without prior notice.</li>
@@ -289,8 +289,8 @@ app.post('/api/quotation', async (req, res) => {
       headerTemplate: headerTemplate,
       footerTemplate: footerTemplate,
       margin: { 
-        top: '180px',    
-        bottom: '120px', 
+        top: '145px',    
+        bottom: '100px', 
         right: '15mm', 
         left: '15mm' 
       }
