@@ -2,15 +2,23 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    # Run every day at 12:00 UTC (noon)
-    - cron: '0 12 * * *'
-  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+    # Trigger every 8 hours, but we will randomly skip most of them
+    - cron: '0 */8 * * *'
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Backend Keepalive API
+      - name: Randomly Ping Backend
         run: |
-          echo "Pinging Render backend to keep Supabase active..."
-          curl -sS https://mamta-backend.onrender.com/api/keepalive
+          # Generate a random number between 1 and 100
+          RANDOM_NUM=$((1 + $RANDOM % 100))
+          
+          # Only actually execute the ping 25% of the time (roughly once every 1 to 3 days at a random time)
+          if [ $RANDOM_NUM -le 25 ]; then
+            echo "Random condition met ($RANDOM_NUM <= 25). Pinging Render backend to keep Supabase active..."
+            curl -sS https://mamta-backend.onrender.com/api/keepalive
+          else
+            echo "Skipping ping to make traffic appear organic and random ($RANDOM_NUM > 25)."
+          fi
