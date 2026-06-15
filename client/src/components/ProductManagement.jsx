@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon } from 'lucide-react';
+import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon, Tag, Bookmark } from 'lucide-react';
 
 export default function ProductManagement() {
   const [categories, setCategories] = useState([]);
@@ -19,6 +19,11 @@ export default function ProductManagement() {
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
+
+  const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
+  const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
+  const [newCategory, setNewCategory] = useState('');
+  const [newBrand, setNewBrand] = useState('');
 
   useEffect(() => {
     fetchMetadata();
@@ -76,6 +81,45 @@ export default function ProductManagement() {
     } catch (e) {
       alert("Error deleting product: " + e.message);
     }
+  };
+
+  // Metadata CRUD
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) return;
+    const { data, error } = await supabase.from('categories').insert([{ name: newCategory.trim() }]).select();
+    if (!error && data) { setCategories([...categories, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); setNewCategory(''); }
+  };
+  const handleDeleteCategory = async (id) => {
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (!error) { setCategories(categories.filter(c => c.id !== id)); fetchProducts(); }
+  };
+  const handleUpdateCategory = async (id) => {
+    if (!editingCategory.name.trim()) return;
+    const { error } = await supabase.from('categories').update({ name: editingCategory.name.trim() }).eq('id', id);
+    if (!error) { 
+       setCategories(categories.map(c => c.id === id ? { ...c, name: editingCategory.name.trim() } : c).sort((a,b)=>a.name.localeCompare(b.name))); 
+       fetchProducts();
+    }
+    setEditingCategory({ id: null, name: '' });
+  };
+
+  const handleAddBrand = async () => {
+    if (!newBrand.trim()) return;
+    const { data, error } = await supabase.from('brands').insert([{ name: newBrand.trim() }]).select();
+    if (!error && data) { setBrands([...brands, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); setNewBrand(''); }
+  };
+  const handleDeleteBrand = async (id) => {
+    const { error } = await supabase.from('brands').delete().eq('id', id);
+    if (!error) { setBrands(brands.filter(b => b.id !== id)); fetchProducts(); }
+  };
+  const handleUpdateBrand = async (id) => {
+    if (!editingBrand.name.trim()) return;
+    const { error } = await supabase.from('brands').update({ name: editingBrand.name.trim() }).eq('id', id);
+    if (!error) { 
+       setBrands(brands.map(b => b.id === id ? { ...b, name: editingBrand.name.trim() } : b).sort((a,b)=>a.name.localeCompare(b.name))); 
+       fetchProducts();
+    }
+    setEditingBrand({ id: null, name: '' });
   };
 
   const handleSubmit = async (e) => {
@@ -137,7 +181,58 @@ export default function ProductManagement() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-12">
+      {/* Metadata Management Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Categories */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Tag className="w-5 h-5 text-blue-600"/> Manage Categories</h3>
+          <div className="flex gap-2 mb-4">
+            <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Category..." value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
+            <button onClick={handleAddCategory} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition-colors font-medium">Add</button>
+          </div>
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+            {categories.map(c => (
+              <div key={c.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors group">
+                {editingCategory.id === c.id ? (
+                  <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingCategory.name} onChange={e => setEditingCategory({...editingCategory, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateCategory(c.id)} onBlur={() => handleUpdateCategory(c.id)} />
+                ) : (
+                  <span className="text-sm text-gray-700 font-medium px-1">{c.name}</span>
+                )}
+                <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => setEditingCategory({id: c.id, name: c.name})} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                  <button onClick={() => handleDeleteCategory(c.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Brands */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Bookmark className="w-5 h-5 text-blue-600"/> Manage Brands</h3>
+          <div className="flex gap-2 mb-4">
+            <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Brand..." value={newBrand} onChange={e => setNewBrand(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddBrand()} />
+            <button onClick={handleAddBrand} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition-colors font-medium">Add</button>
+          </div>
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+            {brands.map(b => (
+              <div key={b.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors group">
+                {editingBrand.id === b.id ? (
+                  <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingBrand.name} onChange={e => setEditingBrand({...editingBrand, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateBrand(b.id)} onBlur={() => handleUpdateBrand(b.id)} />
+                ) : (
+                  <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
+                )}
+                <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => setEditingBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                  <button onClick={() => handleDeleteBrand(b.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Form Section */}
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-6 border-b pb-4">

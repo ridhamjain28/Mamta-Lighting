@@ -6,6 +6,7 @@ export default function History() {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingDeletes, setPendingDeletes] = useState([]);
 
   useEffect(() => {
     fetchQuotes();
@@ -32,28 +33,36 @@ export default function History() {
     }
   }
 
-  const handleDeleteQuote = async (id, pdfUrl) => {
-    if (!window.confirm("Are you sure you want to permanently delete this quotation?")) return;
+  const initiateDelete = (quote) => {
+    const deleteId = quote.id;
+    
+    // Hide it instantly
+    setQuotes(prev => prev.filter(q => q.id !== deleteId));
 
-    try {
-      // If there's a PDF, remove it from the storage bucket to save space
-      if (pdfUrl) {
-        const fileName = pdfUrl.split('/').pop();
-        if (fileName) {
-          await supabase.storage.from('quotations').remove([fileName]);
+    // Wait 10 seconds before actually deleting
+    const timer = setTimeout(async () => {
+      try {
+        if (quote.pdf_url) {
+          const fileName = quote.pdf_url.split('/').pop();
+          if (fileName) {
+            await supabase.storage.from('quotations').remove([fileName]);
+          }
         }
+        await supabase.from('quotations').delete().eq('id', deleteId);
+      } catch (err) {
+        console.error("Failed delayed delete:", err);
       }
+      
+      setPendingDeletes(prev => prev.filter(p => p.id !== deleteId));
+    }, 10000);
 
-      // Delete the record (which cascades to quotation_items if set up correctly)
-      const { error } = await supabase.from('quotations').delete().eq('id', id);
-      if (error) throw error;
+    setPendingDeletes(prev => [...prev, { id: deleteId, quote, timer }]);
+  };
 
-      // Update UI
-      setQuotes(quotes.filter(q => q.id !== id));
-    } catch (err) {
-      console.error(err);
-      alert("Failed to delete quotation: " + err.message);
-    }
+  const undoDelete = (deleteObj) => {
+    clearTimeout(deleteObj.timer);
+    setQuotes(prev => [deleteObj.quote, ...prev].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)));
+    setPendingDeletes(prev => prev.filter(p => p.id !== deleteObj.id));
   };
 
   const handleDownloadPdf = async (pdfUrl, quoteNumber) => {
@@ -147,7 +156,7 @@ export default function History() {
                       )}
                       
                       <button 
-                        onClick={() => handleDeleteQuote(quote.id, quote.pdf_url)}
+                        onClick={() => initiateDelete(quote)}
                         className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
                         title="Delete Quotation"
                       >
@@ -160,6 +169,32 @@ export default function History() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <style>{`
+        @keyframes shrinkTimer {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
+
+      {/* Toast Notifications */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
+        {pendingDeletes.map(pd => (
+          <div key={pd.id} className="bg-gray-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center justify-between min-w-[280px] relative overflow-hidden transition-all">
+            <div className="text-sm font-medium">Quotation Deleted</div>
+            <button 
+              onClick={() => undoDelete(pd)}
+              className="text-blue-400 font-bold text-sm hover:text-blue-300 bg-gray-800 px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+            >
+              UNDO
+            </button>
+            <div 
+              className="absolute bottom-0 left-0 h-1 bg-blue-500 rounded-bl-xl" 
+              style={{ animation: 'shrinkTimer 10s linear forwards' }}
+            ></div>
+          </div>
+        ))}
       </div>
     </div>
   );
