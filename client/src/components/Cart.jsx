@@ -206,7 +206,16 @@ export default function Cart() {
                 {/* Quantity */}
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
                   <button onClick={() => updateItemQuantity(item.cartItemId || item.id, item.quantity - 1)} className="p-2 hover:bg-gray-200"><Minus className="w-3 h-3" /></button>
-                  <span className="w-8 text-center font-medium">{item.quantity}</span>
+                  <input 
+                    type="number" 
+                    min="1"
+                    className="w-12 text-center font-medium bg-transparent focus:outline-none focus:bg-white"
+                    value={item.quantity === 0 ? '' : item.quantity}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      updateItemQuantity(item.cartItemId || item.id, isNaN(val) ? 1 : Math.max(1, val));
+                    }}
+                  />
                   <button onClick={() => updateItemQuantity(item.cartItemId || item.id, item.quantity + 1)} className="p-2 hover:bg-gray-200"><Plus className="w-3 h-3" /></button>
                 </div>
 
