@@ -30,7 +30,7 @@ export const useQuoteStore = create((set, get) => ({
       };
     }
     return { 
-      items: [...state.items, { ...product, quantity: 1, discount_override: 0, custom_price_override: product.base_price }] 
+      items: [...state.items, { ...product, quantity: 1, discount_override: '', custom_price_override: product.base_price }] 
     };
   }),
 
@@ -43,7 +43,7 @@ export const useQuoteStore = create((set, get) => ({
   })),
 
   updateItemDiscount: (id, discount) => set((state) => ({
-    items: state.items.map(item => item.id === id ? { ...item, discount_override: Number(discount) } : item)
+    items: state.items.map(item => item.id === id ? { ...item, discount_override: discount === '' ? '' : Number(discount) } : item)
   })),
 
   removeItem: (id) => set((state) => ({

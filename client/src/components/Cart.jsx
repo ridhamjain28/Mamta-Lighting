@@ -218,8 +218,8 @@ export default function Cart() {
                     <input 
                       type="number" 
                       className="border border-gray-300 rounded p-1 w-24 text-right text-red-600"
-                      value={item.discount_override || ''}
-                      placeholder="0"
+                      value={item.discount_override === '' ? '' : item.discount_override}
+                      placeholder="Default"
                       onChange={(e) => updateItemDiscount(item.id, e.target.value)}
                     />
                   </div>
