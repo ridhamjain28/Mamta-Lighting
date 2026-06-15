@@ -147,27 +147,10 @@ app.post('/api/quotation', async (req, res) => {
       </div>
     `;
 
-    // Puppeteer Footer Template (Now includes Terms & Conditions)
+    // Puppeteer Footer Template (Now just a simple page number)
     const footerTemplate = `
-      <div style="font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; padding: 0 15mm; -webkit-print-color-adjust: exact;">
-        <div style="font-size: 11px; line-height: 1.5; margin-bottom: 20px;">
-          <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms & Conditions:</h4>
-          <ol style="padding-left: 20px; margin: 0;">
-            <li>Prices are subject to change without prior notice.</li>
-            <li>Goods once sold will not be taken back.</li>
-            <li>Delivery subject to stock availability.</li>
-            <li>The quotation is only valid till 3 days from the date provided.</li>
-            <li>This is inclusive of all the charges (GST, Freight Charges if any).</li>
-          </ol>
-          <div style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 12px;">Looking Forward To Your Valuable Order!</div>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          ${logos.havells ? `<img src="${logos.havells}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
-          ${logos.norisys ? `<img src="${logos.norisys}" style="height: 65px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
-          ${logos.beton ? `<img src="${logos.beton}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">BETON</span>`}
-          ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
-          ${logos.finolex ? `<img src="${logos.finolex}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
-        </div>
+      <div style="font-family: Arial, sans-serif; font-size: 10px; width: 100%; text-align: right; padding: 0 15mm; color: #666;">
+        Page <span class="pageNumber"></span> of <span class="totalPages"></span>
       </div>
     `;
 
@@ -260,6 +243,28 @@ app.post('/api/quotation', async (req, res) => {
           </tbody>
         </table>
 
+        <!-- Terms and conditions and brands appended at the end of the document -->
+        <div style="page-break-inside: avoid; margin-top: 40px; padding-bottom: 20px;">
+          <div style="font-size: 11px; line-height: 1.5; margin-bottom: 20px;">
+            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms & Conditions:</h4>
+            <ol style="padding-left: 20px; margin: 0;">
+              <li>Prices are subject to change without prior notice.</li>
+              <li>Goods once sold will not be taken back.</li>
+              <li>Delivery subject to stock availability.</li>
+              <li>The quotation is only valid till 3 days from the date provided.</li>
+              <li>This is inclusive of all the charges (GST, Freight Charges if any).</li>
+            </ol>
+            <div style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 12px;">Looking Forward To Your Valuable Order!</div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px;">
+            ${logos.havells ? `<img src="${logos.havells}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
+            ${logos.norisys ? `<img src="${logos.norisys}" style="height: 65px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
+            ${logos.beton ? `<img src="${logos.beton}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">BETON</span>`}
+            ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
+            ${logos.finolex ? `<img src="${logos.finolex}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
+          </div>
+        </div>
+
       </body>
       </html>
     `;
@@ -281,8 +286,8 @@ app.post('/api/quotation', async (req, res) => {
       headerTemplate: headerTemplate,
       footerTemplate: footerTemplate,
       margin: { 
-        top: '120px',    
-        bottom: '250px', // Increased bottom margin to fit Terms & Conditions and Logos
+        top: '180px',    
+        bottom: '60px', 
         right: '15mm', 
         left: '15mm' 
       }
