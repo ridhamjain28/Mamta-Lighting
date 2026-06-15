@@ -41,7 +41,8 @@ const logos = {
   norisys: getBase64('norisys.png'),
   beton: getBase64('beton.png'),
   crabtree: getBase64('crabtree.png'),
-  finolex: getBase64('finolex.png')
+  finolex: getBase64('finolex.png'),
+  na: getBase64('na.png')
 };
 // --------------------------------------------
 
@@ -98,7 +99,9 @@ app.post('/api/quotation', async (req, res) => {
       const total = netPrice * item.quantity;
       
       const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
-      const imageUrl = item.primary_image_url ? `<img src="${item.primary_image_url}" class="product-img" />` : '';
+      const imageUrl = item.primary_image_url 
+        ? `<img src="${item.primary_image_url}" class="product-img" />` 
+        : (logos.na ? `<img src="${logos.na}" class="product-img" />` : '');
 
       return `
         <tr>
