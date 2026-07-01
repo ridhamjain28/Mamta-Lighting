@@ -47,7 +47,6 @@ export default function QuoteSummary() {
       project_name: customer.project,
       items: activeItems,
       subtotal,
-      discount_amount,
       gst_amount,
       grand_total,
       quote_type: quoteType,

@@ -7,6 +7,7 @@ export default function ManualProductGrid() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
   const { addToast } = useToastStore();
 
   // New Row State
@@ -109,12 +110,54 @@ export default function ManualProductGrid() {
 
   const handleDelete = async (id) => {
     setProducts(products.filter(p => p.id !== id));
+    setSelectedIds(selectedIds.filter(selId => selId !== id));
     await supabase.from('products').delete().eq('id', id);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setProducts(products.filter(p => !selectedIds.includes(p.id)));
+    
+    const { error } = await supabase.from('products').delete().in('id', selectedIds);
+    if (error) {
+      addToast("Failed to delete selected products", "error");
+      fetchData(); // rollback
+    } else {
+      setSelectedIds([]);
+      addToast(`Deleted ${selectedIds.length} products`, "success");
+    }
+  };
+
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(products.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(selId => selId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
   };
 
   return (
     <div className="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200">
-      <h2 className="text-lg font-bold mb-4 px-2">Manual Products Data</h2>
+      <div className="flex items-center justify-between mb-4 px-2">
+        <h2 className="text-lg font-bold">Manual Products Data</h2>
+        {selectedIds.length > 0 && (
+          <button 
+            onClick={handleBulkDelete}
+            className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-medium hover:bg-red-200 flex items-center gap-2 transition-colors"
+          >
+            <X className="w-4 h-4" /> Delete Selected ({selectedIds.length})
+          </button>
+        )}
+      </div>
       
       {/* Hidden datalist for category autocomplete without forcing a dropdown */}
       <datalist id="manual-categories">
@@ -128,7 +171,15 @@ export default function ManualProductGrid() {
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
               <tr>
-                <th className="p-3 font-semibold border-r border-gray-200 w-[40%]">Product Name</th>
+                <th className="p-3 font-semibold border-r border-gray-200 w-12 text-center">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    onChange={toggleSelectAll}
+                    checked={products.length > 0 && selectedIds.length === products.length}
+                  />
+                </th>
+                <th className="p-3 font-semibold border-r border-gray-200 w-[35%]">Product Name</th>
                 <th className="p-3 font-semibold border-r border-gray-200 w-[30%]">Category</th>
                 <th className="p-3 font-semibold border-r border-gray-200 w-[20%]">Price (₹)</th>
                 <th className="p-3 font-semibold w-[10%] text-center"></th>
@@ -139,6 +190,14 @@ export default function ManualProductGrid() {
                 const displayCategory = prod.categories?.name ? prod.categories.name.replace('[M] ', '') : '';
                 return (
                   <tr key={prod.id} className="border-b border-gray-100 hover:bg-blue-50/30 group transition-colors">
+                    <td className="p-0 border-r border-gray-100 text-center align-middle">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={selectedIds.includes(prod.id)}
+                        onChange={() => toggleSelectRow(prod.id)}
+                      />
+                    </td>
                     <td className="p-0 border-r border-gray-100 relative">
                       <input 
                         type="text" 
@@ -185,6 +244,9 @@ export default function ManualProductGrid() {
               
               {/* The Always-Empty Bottom Row */}
               <tr className="bg-green-50/20">
+                <td className="p-0 border-r border-gray-100 text-center">
+                   {/* Empty cell for checkbox */}
+                </td>
                 <td className="p-0 border-r border-gray-100 relative">
                   <input 
                     type="text" 
