@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
-import { Plus, Save, Trash2, Tag, Palette } from 'lucide-react';
+import { Plus, Save, Trash2, Tag, Palette, Bookmark, Pencil, X } from 'lucide-react';
 
 export default function SwitchProductManagement() {
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToastStore();
+
+  const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
+  const [newBrand, setNewBrand] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -83,6 +86,34 @@ export default function SwitchProductManagement() {
     }
   }
 
+  const handleAddBrand = async () => {
+    if (!newBrand.trim()) return;
+    const { data, error } = await supabase.from('brands').insert([{ name: newBrand.trim() }]).select();
+    if (!error && data) { 
+      setBrands([...brands, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); 
+      setNewBrand(''); 
+    }
+  };
+
+  const handleDeleteBrand = async (id) => {
+    if (!window.confirm('Are you sure? This will delete the brand and potentially cause errors for products using it.')) return;
+    const { error } = await supabase.from('brands').delete().eq('id', id);
+    if (!error) { 
+      setBrands(brands.filter(b => b.id !== id)); 
+      fetchMetadata(); 
+    }
+  };
+
+  const handleUpdateBrand = async (id) => {
+    if (!editingBrand.name.trim()) return;
+    const { error } = await supabase.from('brands').update({ name: editingBrand.name.trim() }).eq('id', id);
+    if (!error) { 
+       setBrands(brands.map(b => b.id === id ? { ...b, name: editingBrand.name.trim() } : b).sort((a,b)=>a.name.localeCompare(b.name))); 
+       fetchMetadata();
+    }
+    setEditingBrand({ id: null, name: '' });
+  };
+
   async function handleDelete(id) {
     if (!window.confirm('Are you sure you want to delete this variant?')) return;
     const { error } = await supabase.from('products').delete().eq('id', id);
@@ -109,9 +140,32 @@ export default function SwitchProductManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Add Product Form */}
+    <div className="space-y-6 pb-12">
+      {/* Brands Management Section */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Bookmark className="w-5 h-5 text-purple-600"/> Manage Brands</h3>
+        <div className="flex gap-2 mb-4">
+          <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Brand..." value={newBrand} onChange={e => setNewBrand(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddBrand()} />
+          <button onClick={handleAddBrand} className="bg-purple-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors font-medium">Add</button>
+        </div>
+        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+          {brands.map(b => (
+            <div key={b.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-purple-200 transition-colors group">
+              {editingBrand.id === b.id ? (
+                <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingBrand.name} onChange={e => setEditingBrand({...editingBrand, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateBrand(b.id)} onBlur={() => handleUpdateBrand(b.id)} />
+              ) : (
+                <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
+              )}
+              <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => setEditingBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-700 hover:text-purple-600 hover:bg-purple-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                <button onClick={() => handleDeleteBrand(b.id)} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
           <Plus className="w-5 h-5 text-purple-600" />
           Add Switch / Accessory Variant
