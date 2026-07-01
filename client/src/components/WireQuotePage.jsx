@@ -98,18 +98,16 @@ export default function WireQuotePage() {
   const handleQtyChange = (product, value) => {
     const qty = Math.max(0, parseInt(value, 10) || 0);
     const ov = getOverride(product.id);
-    const manualPrice = ov.manualPrice ?? product.base_price;
-    const disc = ov.disc;
-    setLocalOverrides(prev => ({ ...prev, [product.id]: { qty, manualPrice, disc } }));
-    syncProductToStore(product, qty, manualPrice, disc);
+    setLocalOverrides(prev => ({ ...prev, [product.id]: { ...ov, qty } }));
+    syncProductToStore(product, qty, ov.manualPrice, ov.disc);
   };
 
   const handlePriceChange = (product, value) => {
-    const price = parseFloat(value) || 0;
+    const manualPrice = value === '' ? null : parseFloat(value);
     const ov = getOverride(product.id);
-    setLocalOverrides(prev => ({ ...prev, [product.id]: { ...ov, manualPrice: price } }));
+    setLocalOverrides(prev => ({ ...prev, [product.id]: { ...ov, manualPrice } }));
     if (ov.qty > 0) {
-      syncProductToStore(product, ov.qty, price, ov.disc);
+      syncProductToStore(product, ov.qty, manualPrice, ov.disc);
     }
   };
 
@@ -118,14 +116,22 @@ export default function WireQuotePage() {
     const ov = getOverride(product.id);
     setLocalOverrides(prev => ({ ...prev, [product.id]: { ...ov, disc } }));
     if (ov.qty > 0) {
-      syncProductToStore(product, ov.qty, ov.manualPrice ?? product.base_price, disc);
+      syncProductToStore(product, ov.qty, ov.manualPrice, disc);
     }
   };
 
   const rowTotal = (product) => {
     const ov = getOverride(product.id);
     const qty = ov.qty || 0;
-    const price = ov.manualPrice ?? product.base_price ?? 0;
+    if (qty === 0) return 0;
+    
+    let price = ov.manualPrice;
+    if (price === null || price === undefined || price === '' || Number(price) === 0) {
+      price = product.base_price ?? 0;
+    } else {
+      price = Number(price);
+    }
+    
     const disc = ov.disc !== '' ? parseFloat(ov.disc) || 0 : (Number(globalDiscount) || 0);
     return (price - price * disc / 100) * qty;
   };
@@ -143,10 +149,6 @@ export default function WireQuotePage() {
 
     Object.keys(groups).forEach(cat => {
       groups[cat].sort((a, b) => {
-        const aQty = getOverride(a.id).qty || 0;
-        const bQty = getOverride(b.id).qty || 0;
-        if (aQty > 0 && bQty === 0) return -1;
-        if (aQty === 0 && bQty > 0) return 1;
         return a.name.localeCompare(b.name);
       });
     });
@@ -229,7 +231,7 @@ export default function WireQuotePage() {
                     {groupProducts.map(product => {
                       const ov = getOverride(product.id);
                       const qty = ov.qty || 0;
-                      const manualPrice = ov.manualPrice ?? product.base_price ?? 0;
+                      const manualPrice = ov.manualPrice ?? '';
                       const disc = ov.disc;
                       const total = rowTotal(product);
                       const isActive = qty > 0;

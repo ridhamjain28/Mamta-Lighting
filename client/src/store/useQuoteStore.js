@@ -99,7 +99,7 @@ export const useQuoteStore = create((set, get) => ({
   })),
 
   updateItemPrice: (cartItemId, price) => set((state) => ({
-    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, custom_price_override: Number(price) } : item)
+    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, custom_price_override: price === '' ? null : Number(price) } : item)
   })),
 
   updateItemDiscount: (cartItemId, discount) => set((state) => ({
@@ -120,7 +120,12 @@ export const useQuoteStore = create((set, get) => ({
     const { items, globalDiscount, gstIncluded } = get();
     
     const subtotal = items.reduce((acc, item) => {
-      const price = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
+      let price = item.custom_price_override;
+      if (price === null || price === undefined || price === '' || Number(price) === 0) {
+        price = item.base_price;
+      } else {
+        price = Number(price);
+      }
       const effectiveDiscount = (item.discount_override !== '' && item.discount_override !== null) 
         ? Number(item.discount_override) 
         : (Number(globalDiscount) || 0);

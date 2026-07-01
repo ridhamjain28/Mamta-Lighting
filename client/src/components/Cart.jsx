@@ -68,7 +68,8 @@ export default function Cart() {
                     <input 
                       type="number" 
                       className="border border-gray-300 rounded p-1 w-24 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      value={item.custom_price_override !== null ? item.custom_price_override : item.base_price}
+                      value={item.custom_price_override ?? ''}
+                      placeholder={item.base_price}
                       onChange={(e) => updateItemPrice(item.cartItemId || item.id, e.target.value)}
                     />
                   </div>
@@ -86,7 +87,17 @@ export default function Cart() {
 
                 {/* Total */}
                 <div className="text-right font-bold text-gray-800">
-                  ₹{((item.custom_price_override - (item.custom_price_override * (((item.discount_override !== '' && item.discount_override !== null) ? Number(item.discount_override) : (Number(globalDiscount) || 0)) / 100))) * item.quantity).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                  {(() => {
+                    let price = item.custom_price_override;
+                    if (price === null || price === undefined || price === '' || Number(price) === 0) {
+                      price = item.base_price;
+                    } else {
+                      price = Number(price);
+                    }
+                    const disc = (item.discount_override !== '' && item.discount_override !== null) ? Number(item.discount_override) : (Number(globalDiscount) || 0);
+                    const finalPrice = price - (price * (disc / 100));
+                    return `₹${(finalPrice * item.quantity).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+                  })()}
                 </div>
               </div>
             </div>

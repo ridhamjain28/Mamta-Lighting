@@ -186,18 +186,16 @@ export default function SwitchQuotePage() {
 
   const handleQtyChange = (name, value) => {
     const qty = Math.max(0, parseInt(value, 10) || 0);
-    const variant = getCurrentVariant(name);
     const ov = getOverride(name);
-    const manualPrice = ov.manualPrice ?? variant?.base_price;
-    setLocalOverrides(prev => ({ ...prev, [name]: { ...ov, qty, manualPrice } }));
-    syncToStore(name, qty, manualPrice, ov.disc);
+    setLocalOverrides(prev => ({ ...prev, [name]: { ...ov, qty } }));
+    syncToStore(name, qty, ov.manualPrice, ov.disc);
   };
 
   const handlePriceChange = (name, value) => {
-    const price = parseFloat(value) || 0;
+    const manualPrice = value === '' ? null : parseFloat(value);
     const ov = getOverride(name);
-    setLocalOverrides(prev => ({ ...prev, [name]: { ...ov, manualPrice: price } }));
-    if (ov.qty > 0) syncToStore(name, ov.qty, price, ov.disc);
+    setLocalOverrides(prev => ({ ...prev, [name]: { ...ov, manualPrice } }));
+    if (ov.qty > 0) syncToStore(name, ov.qty, manualPrice, ov.disc);
   };
 
   const handleDiscChange = (name, value) => {
@@ -211,21 +209,24 @@ export default function SwitchQuotePage() {
     const ov = getOverride(name);
     const qty = ov.qty || 0;
     if (!variant || qty === 0) return 0;
-    const price = ov.manualPrice ?? variant.base_price ?? 0;
+    
+    let price = ov.manualPrice;
+    if (price === null || price === undefined || price === '' || Number(price) === 0) {
+      price = variant.base_price ?? 0;
+    } else {
+      price = Number(price);
+    }
+    
     const disc = ov.disc !== '' ? parseFloat(ov.disc) || 0 : (Number(globalDiscount) || 0);
     return (price - price * disc / 100) * qty;
   };
 
-  // Sort names: active > alphabetical
+  // Sort names: alphabetical
   const sortedNames = useMemo(() => {
     return [...uniqueNames].sort((a, b) => {
-      const aQty = localOverrides[a]?.qty || 0;
-      const bQty = localOverrides[b]?.qty || 0;
-      if (aQty > 0 && bQty === 0) return -1;
-      if (aQty === 0 && bQty > 0) return 1;
       return a.localeCompare(b);
     });
-  }, [uniqueNames, localOverrides]);
+  }, [uniqueNames]);
 
   if (loading) return <div className="flex justify-center items-center h-96"><Loader2 className="w-8 h-8 animate-spin text-purple-500" /></div>;
 
@@ -293,7 +294,7 @@ export default function SwitchQuotePage() {
                   const ov = getOverride(name);
                   const qty = ov.qty || 0;
                   const isActive = qty > 0;
-                  const manualPrice = ov.manualPrice ?? variant?.base_price ?? '';
+                  const manualPrice = ov.manualPrice ?? '';
                   const total = rowTotal(name, variant);
                   
                   const isUnavailable = !variant;

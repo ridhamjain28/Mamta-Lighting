@@ -85,7 +85,12 @@ export default function QuoteSummary() {
       // Insert items
       if (activeItems.length > 0) {
         const itemsPayload = activeItems.map(item => {
-          const itemPrice = item.custom_price_override ?? item.base_price;
+          let itemPrice = item.custom_price_override;
+          if (itemPrice === null || itemPrice === undefined || itemPrice === '' || Number(itemPrice) === 0) {
+            itemPrice = item.base_price;
+          } else {
+            itemPrice = Number(itemPrice);
+          }
           const itemDisc = (item.discount_override !== '' && item.discount_override !== null) 
               ? Number(item.discount_override) 
               : (Number(globalDiscount) || 0);
