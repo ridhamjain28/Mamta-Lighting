@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
 import {
@@ -14,6 +14,8 @@ export default function ManualProductGrid() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToastStore();
+  const lastSyncedProducts = useRef([]);
+  const syncTimeoutRef = useRef(null);
 
   useEffect(() => {
     fetchData();
@@ -35,6 +37,7 @@ export default function ManualProductGrid() {
         base_price: p.base_price || 0
       }));
       setProducts(gridRows);
+      lastSyncedProducts.current = JSON.parse(JSON.stringify(gridRows));
     }
     
     if (!catRes.error && catRes.data) {
@@ -60,18 +63,17 @@ export default function ManualProductGrid() {
     return data[0].id;
   };
 
-  const handleChange = async (newRows) => {
+  const syncToDatabase = async (newRows) => {
+    const oldRows = lastSyncedProducts.current;
+    
     // 1. Identify deleted rows
-    const oldIds = products.filter(p => !p._isNew).map(p => p.id);
+    const oldIds = oldRows.filter(p => !p._isNew).map(p => p.id);
     const newIds = newRows.filter(p => !p._isNew).map(p => p.id);
     const deletedIds = oldIds.filter(id => !newIds.includes(id));
 
     if (deletedIds.length > 0) {
       await supabase.from('products').delete().in('id', deletedIds);
     }
-
-    // Optimistically update UI
-    setProducts(newRows);
 
     // 2. Identify inserted rows
     const insertedRows = newRows.filter(p => p._isNew && p.name && p.name.trim() !== '');
@@ -106,7 +108,7 @@ export default function ManualProductGrid() {
     const updatePromises = [];
     
     for (const row of updatedRows) {
-      const oldRow = products.find(p => p.id === row.id);
+      const oldRow = oldRows.find(p => p.id === row.id);
       if (oldRow && (oldRow.name !== row.name || oldRow.category !== row.category || oldRow.base_price !== row.base_price)) {
         updatePromises.push(async () => {
           const catId = await resolveCategoryId(row.category);
@@ -122,6 +124,20 @@ export default function ManualProductGrid() {
     if (updatePromises.length > 0) {
        await Promise.all(updatePromises.map(fn => fn()));
     }
+    
+    // Update baseline
+    lastSyncedProducts.current = JSON.parse(JSON.stringify(newRows));
+  };
+
+  const handleChange = (newRows) => {
+    // 1. Instantly update UI (fixes 500ms INP block)
+    setProducts(newRows);
+    
+    // 2. Debounce heavy diffing and network calls
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(() => {
+      syncToDatabase(newRows);
+    }, 1000);
   };
 
   const columns = [
