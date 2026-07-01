@@ -40,7 +40,10 @@ export default function ProductManagement() {
   async function fetchMetadata() {
     const { data: catData } = await supabase.from('categories').select('*');
     const { data: brandData } = await supabase.from('brands').select('*');
-    if (catData) setCategories(catData.sort((a,b)=>a.name.localeCompare(b.name)));
+    if (catData) {
+      const imageCategories = catData.filter(c => !c.name.startsWith('[M] '));
+      setCategories(imageCategories.sort((a,b)=>a.name.localeCompare(b.name)));
+    }
     if (brandData) setBrands(brandData.sort((a,b)=>a.name.localeCompare(b.name)));
   }
 
