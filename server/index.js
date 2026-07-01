@@ -134,6 +134,7 @@ app.post('/api/quotation', async (req, res) => {
 
     // Build items HTML based on quote type
     const isManualQuote = quote_type === 'Manual Quote';
+    const isImageQuote = quote_type === 'Image Quote';
 
     const itemsHtml = itemsWithBase64Images.map((item, index) => {
       const listPrice = item.base_price || 0;
@@ -156,7 +157,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-right font-bold">${total.toFixed(2)}</td>
           </tr>
         `;
-      } else {
+      } else if (isImageQuote) {
         const imageUrl = item._base64_image 
           ? `<img src="${item._base64_image}" class="product-img" />` 
           : (logos.na ? `<img src="${logos.na}" class="product-img" />` : '');
@@ -172,6 +173,17 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-right font-bold">${total.toFixed(2)}</td>
           </tr>
         `;
+      } else {
+        return `
+          <tr>
+            <td class="text-center font-bold">${index + 1}</td>
+            <td class="font-bold">${displayProductName}</td>
+            <td class="text-center font-bold">${item.quantity}</td>
+            ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
+            <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
+            <td class="text-right font-bold">${total.toFixed(2)}</td>
+          </tr>
+        `;
       }
     }).join('');
 
@@ -179,8 +191,10 @@ app.post('/api/quotation', async (req, res) => {
     let emptyRowsHtml = '';
     if (isManualQuote) {
        emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-    } else {
+    } else if (isImageQuote) {
        emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td><td></td>${hide_list_price ? '' : '<td></td>'}<td></td><td></td></tr>`;
+    } else {
+       emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td>${hide_list_price ? '' : '<td></td>'}<td></td><td></td></tr>`;
     }
 
     // Puppeteer Header Template
@@ -265,11 +279,20 @@ app.post('/api/quotation', async (req, res) => {
                 <th width="12%">Discount</th>
                 <th width="16%">Amount</th>
               </tr>
-            ` : `
+            ` : isImageQuote ? `
               <tr>
                 <th width="5%">S.No</th>
                 <th width="${hide_list_price ? '24%' : '12%'}">Image</th>
                 <th width="35%">Product</th>
+                <th width="8%">Qty</th>
+                ${hide_list_price ? '' : '<th width="12%">List Price</th>'}
+                <th width="12%">Net Price</th>
+                <th width="16%">Total</th>
+              </tr>
+            ` : `
+              <tr>
+                <th width="5%">S.No</th>
+                <th width="47%">Product</th>
                 <th width="8%">Qty</th>
                 ${hide_list_price ? '' : '<th width="12%">List Price</th>'}
                 <th width="12%">Net Price</th>
@@ -286,9 +309,14 @@ app.post('/api/quotation', async (req, res) => {
                 <td style="border-bottom: none;"></td>
                 <td style="border-bottom: none;"></td>
                 <td style="border-bottom: none;"></td>
-              ` : `
+              ` : isImageQuote ? `
                 <td style="border-bottom: none; border-left: none;"></td>
                 <td style="border-bottom: none;"></td>
+                <td style="border-bottom: none;"></td>
+                <td style="border-bottom: none;"></td>
+                ${hide_list_price ? '' : '<td style="border-bottom: none;"></td>'}
+              ` : `
+                <td style="border-bottom: none; border-left: none;"></td>
                 <td style="border-bottom: none;"></td>
                 <td style="border-bottom: none;"></td>
                 ${hide_list_price ? '' : '<td style="border-bottom: none;"></td>'}
@@ -303,9 +331,14 @@ app.post('/api/quotation', async (req, res) => {
                 <td style="border-bottom: none; border-top: none;"></td>
                 <td style="border-bottom: none; border-top: none;"></td>
                 <td style="border-bottom: none; border-top: none;"></td>
-              ` : `
+              ` : isImageQuote ? `
                 <td style="border-bottom: none; border-top: none; border-left: none;"></td>
                 <td style="border-bottom: none; border-top: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+                ${hide_list_price ? '' : '<td style="border-bottom: none; border-top: none;"></td>'}
+              ` : `
+                <td style="border-bottom: none; border-top: none; border-left: none;"></td>
                 <td style="border-bottom: none; border-top: none;"></td>
                 <td style="border-bottom: none; border-top: none;"></td>
                 ${hide_list_price ? '' : '<td style="border-bottom: none; border-top: none;"></td>'}
@@ -320,9 +353,14 @@ app.post('/api/quotation', async (req, res) => {
                 <td style="border-top: none; background-color: #fff;"></td>
                 <td style="border-top: none; background-color: #fff;"></td>
                 <td style="border-top: none; background-color: #fff;"></td>
-              ` : `
+              ` : isImageQuote ? `
                 <td style="border-top: none; border-left: none; background-color: #fff;"></td>
                 <td style="border-top: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+                ${hide_list_price ? '' : '<td style="border-top: none; background-color: #fff;"></td>'}
+              ` : `
+                <td style="border-top: none; border-left: none; background-color: #fff;"></td>
                 <td style="border-top: none; background-color: #fff;"></td>
                 <td style="border-top: none; background-color: #fff;"></td>
                 ${hide_list_price ? '' : '<td style="border-top: none; background-color: #fff;"></td>'}
