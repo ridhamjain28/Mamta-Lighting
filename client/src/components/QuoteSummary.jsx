@@ -39,11 +39,13 @@ export default function QuoteSummary() {
       return null;
     }
 
+    const activeItems = items.filter(item => Number(item.quantity) > 0);
+
     const payload = {
       customer_name: customer.name,
-      customer_phone: customer.phone,
+      phone_number: customer.phone,
       project_name: customer.project,
-      items: items,
+      items: activeItems,
       subtotal,
       discount_amount,
       gst_amount,
@@ -111,7 +113,9 @@ export default function QuoteSummary() {
     }, 6000);
 
     try {
-      const itemsWithEffectiveDiscount = items.map(item => ({
+      const activeItems = items.filter(item => Number(item.quantity) > 0);
+
+      const itemsWithEffectiveDiscount = activeItems.map(item => ({
         ...item,
         discount_override: (item.discount_override !== '' && item.discount_override !== null) 
           ? Number(item.discount_override) 
@@ -128,7 +132,7 @@ export default function QuoteSummary() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_name: customer.name,
-          customer_phone: customer.phone,
+          phone_number: customer.phone,
           project_name: customer.project,
           items: itemsWithEffectiveDiscount,
           subtotal,

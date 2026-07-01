@@ -93,7 +93,7 @@ export default function History({ setActiveTab }) {
       status: quote.status || 'Draft',
       customer: {
         name: quote.customer_name || '',
-        phone: quote.customer_phone || '',
+        phone: quote.phone_number || '',
         project: quote.project_name || ''
       },
       items: quote.items || [],
@@ -150,7 +150,7 @@ export default function History({ setActiveTab }) {
 
     return (
       q.customer_name?.toLowerCase().includes(search) ||
-      q.customer_phone?.includes(search) ||
+      q.phone_number?.includes(search) ||
       q.project_name?.toLowerCase().includes(search) ||
       q.quote_type?.toLowerCase().includes(search) ||
       new Date(q.created_at).toLocaleDateString().includes(search) ||
@@ -216,7 +216,7 @@ export default function History({ setActiveTab }) {
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-medium text-gray-900">{quote.customer_name}</div>
-                    <div className="text-xs text-gray-500">{quote.customer_phone} {quote.project_name && `• ${quote.project_name}`}</div>
+                    <div className="text-xs text-gray-500">{quote.phone_number} {quote.project_name && `• ${quote.project_name}`}</div>
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-medium text-gray-700 text-xs bg-gray-100 inline-block px-2 py-1 rounded mb-1">{quote.quote_type || 'Image Quote'}</div>

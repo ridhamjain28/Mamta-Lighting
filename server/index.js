@@ -92,7 +92,7 @@ app.post('/api/quotation', async (req, res) => {
   try {
     const { 
       customer_name, 
-      customer_phone, 
+      phone_number, 
       project_name, 
       items, 
       subtotal, 
@@ -244,7 +244,7 @@ app.post('/api/quotation', async (req, res) => {
         <div class="customer-info">
           <div class="customer-info-left">
             To: ${customer_name || 'N/A'}<br>
-            Phone: ${customer_phone || 'N/A'}
+            Phone: ${phone_number || 'N/A'}
           </div>
           <div class="customer-info-right">
             Date: ${dateStr}<br>
