@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
+import { useQuoteStore } from '../store/useQuoteStore';
 import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon, Tag, Bookmark } from 'lucide-react';
-import ManualProductGrid from './ManualProductGrid';
 
 export default function ProductManagement() {
   const [categories, setCategories] = useState([]);
@@ -10,8 +10,7 @@ export default function ProductManagement() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  
-  const [activeTab, setActiveTab] = useState('image'); // 'image' or 'manual'
+  const systemMode = useQuoteStore(state => state.systemMode);
 
   const initialForm = {
     name: '',
@@ -21,7 +20,7 @@ export default function ProductManagement() {
     base_price: '',
     description: '',
     variants: [],
-    product_type: 'Image Product'
+    product_type: systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product'
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
@@ -35,24 +34,31 @@ export default function ProductManagement() {
   useEffect(() => {
     fetchMetadata();
     fetchProducts();
-  }, []);
+  }, [systemMode]);
 
   async function fetchMetadata() {
     const { data: catData } = await supabase.from('categories').select('*');
     const { data: brandData } = await supabase.from('brands').select('*');
     if (catData) {
-      const imageCategories = catData.filter(c => !c.name.startsWith('[M] '));
-      setCategories(imageCategories.sort((a,b)=>a.name.localeCompare(b.name)));
+      setCategories(catData.sort((a,b)=>a.name.localeCompare(b.name)));
     }
     if (brandData) setBrands(brandData.sort((a,b)=>a.name.localeCompare(b.name)));
   }
 
   async function fetchProducts() {
-    const { data } = await supabase.from('products').select(`
+    let query = supabase.from('products').select(`
       *,
       brands ( name ),
       categories ( name )
-    `).order('created_at', { ascending: false });
+    `);
+    
+    if (systemMode === 'Manual Quote') {
+      query = query.eq('product_type', 'Manual Product');
+    } else {
+      query = query.or('product_type.eq.Image Product,product_type.is.null');
+    }
+    
+    const { data } = await query.order('created_at', { ascending: false });
     if (data) setProducts(data);
   }
 
@@ -72,7 +78,7 @@ export default function ProductManagement() {
       base_price: prod.base_price || '',
       description: prod.description || '',
       variants: prod.variants || [],
-      product_type: prod.product_type || 'Image Product'
+      product_type: prod.product_type || (systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product')
     });
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -198,7 +204,7 @@ export default function ProductManagement() {
     }
   };
 
-  const imageProducts = products.filter(p => p.product_type !== 'Manual Product');
+  const displayProducts = products;
 
   return (
     <div className="space-y-6 pb-12">
@@ -323,12 +329,14 @@ export default function ProductManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (₹) *</label>
                   <input required type="number" step="0.01" className="input-field" value={formData.base_price} onChange={e => setFormData({...formData, base_price: e.target.value})} />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {editingId ? 'Update Image (Optional)' : 'Product Image *'}
-                  </label>
-                  <input required={!editingId} type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                </div>
+                {systemMode !== 'Manual Quote' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {editingId ? 'Update Image (Optional)' : 'Product Image *'}
+                    </label>
+                    <input required={!editingId} type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                  </div>
+                )}
                 
                 {/* Product Variations */}
                 <div className="md:col-span-2 mt-4 p-5 bg-gray-50 border border-gray-200 rounded-lg">
@@ -412,12 +420,14 @@ export default function ProductManagement() {
 
           {/* Product List Section */}
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">Image Products</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">
+              {systemMode === 'Manual Quote' ? 'Manual Products' : 'Image Products'}
+            </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-y border-gray-200 text-sm text-gray-500 uppercase tracking-wider">
-                    <th className="py-3 px-4 font-medium w-16">Image</th>
+                    {systemMode !== 'Manual Quote' && <th className="py-3 px-4 font-medium w-16">Image</th>}
                     <th className="py-3 px-4 font-medium">Product Details</th>
                     <th className="py-3 px-4 font-medium">Category / Brand</th>
                     <th className="py-3 px-4 font-medium">Base Price</th>
@@ -425,22 +435,24 @@ export default function ProductManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-sm">
-                  {imageProducts.length === 0 ? (
+                  {products.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="py-8 text-center text-gray-500">No products found. Add one above!</td>
+                      <td colSpan={systemMode !== 'Manual Quote' ? "5" : "4"} className="py-8 text-center text-gray-500">No products found. Add one above!</td>
                     </tr>
                   ) : (
-                    imageProducts.map(product => (
+                    products.map(product => (
                       <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-center">
-                          {product.primary_image_url ? (
-                            <img src={product.primary_image_url} alt={product.name} className="w-12 h-12 object-contain rounded bg-white border border-gray-200" />
-                          ) : (
-                            <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-400">
-                              <ImageIcon className="w-5 h-5" />
-                            </div>
-                          )}
-                        </td>
+                        {systemMode !== 'Manual Quote' && (
+                          <td className="py-3 px-4 text-center">
+                            {product.primary_image_url ? (
+                              <img src={product.primary_image_url} alt={product.name} className="w-12 h-12 object-contain rounded bg-white border border-gray-200" />
+                            ) : (
+                              <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-400">
+                                <ImageIcon className="w-5 h-5" />
+                              </div>
+                            )}
+                          </td>
+                        )}
                         <td className="py-3 px-4">
                           <div className="font-semibold text-gray-900">{product.name}</div>
                           <div className="text-xs text-gray-500">Model: {product.model_number || 'N/A'}</div>

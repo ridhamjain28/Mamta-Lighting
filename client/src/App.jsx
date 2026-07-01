@@ -2,12 +2,10 @@ import React, { useState, useEffect, startTransition } from 'react';
 import Catalog from './components/Catalog';
 import Cart from './components/Cart';
 import ProductManagement from './components/ProductManagement';
-import ManualProductGrid from './components/ManualProductGrid';
 import History from './components/History';
 import ToastContainer from './components/ToastContainer';
 import { History as HistoryIcon, ArrowLeftRight, PackageSearch, FileText, Settings } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
-import ManualQuote from './components/ManualQuote';
 import { supabase } from './supabase';
 
 function App() {
@@ -147,23 +145,15 @@ function App() {
         
         {activeTab === 'new-quote' && (
           <>
-            {isImageSystem ? (
-              <>
-                {/* LEFT PANEL: PRODUCT DISCOVERY */}
-                <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
-                  <Catalog />
-                </div>
+            {/* LEFT PANEL: PRODUCT DISCOVERY */}
+            <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
+              <Catalog />
+            </div>
 
-                {/* RIGHT PANEL: QUOTATION CART */}
-                <div className="w-full md:w-[40%] flex-none md:flex-1 h-auto md:h-full flex flex-col bg-white">
-                  <Cart />
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex flex-col bg-white">
-                 <ManualQuote />
-              </div>
-            )}
+            {/* RIGHT PANEL: QUOTATION CART */}
+            <div className="w-full md:w-[40%] flex-none md:flex-1 h-auto md:h-full flex flex-col bg-white">
+              <Cart />
+            </div>
           </>
         )}
 
@@ -178,7 +168,7 @@ function App() {
         {activeTab === 'management' && (
           <div className="w-full flex justify-center p-8 bg-gray-50 overflow-y-auto">
             <div className="max-w-4xl w-full">
-              {isImageSystem ? <ProductManagement /> : <ManualProductGridWrapper />}
+              <ProductManagement />
             </div>
           </div>
         )}
@@ -188,21 +178,6 @@ function App() {
       <ToastContainer />
     </div>
   );
-}
-
-// Helper to fetch categories for the manual grid, since ProductManagement used to do it
-function ManualProductGridWrapper() {
-  const [categories, setCategories] = useState([]);
-  
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from('categories').select('*');
-      if (data) setCategories(data.sort((a,b)=>a.name.localeCompare(b.name)));
-    }
-    load();
-  }, []);
-
-  return <ManualProductGrid categories={categories} />;
 }
 
 export default App;
