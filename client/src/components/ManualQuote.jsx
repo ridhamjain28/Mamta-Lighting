@@ -140,8 +140,12 @@ export default function ManualQuote() {
   );
 }
 
-function SpreadsheetRow({ item }) {
-  const { updateItemQuantity, updateItemPrice, updateItemDiscount, globalDiscount } = useQuoteStore();
+const SpreadsheetRow = React.memo(function SpreadsheetRow({ item }) {
+  const updateItemQuantity = useQuoteStore(state => state.updateItemQuantity);
+  const updateItemPrice = useQuoteStore(state => state.updateItemPrice);
+  const updateItemDiscount = useQuoteStore(state => state.updateItemDiscount);
+  const globalDiscount = useQuoteStore(state => state.globalDiscount);
+  
   const cartItemId = item.cartItemId || item.id;
   
   // Calculate Math
@@ -222,4 +226,9 @@ function SpreadsheetRow({ item }) {
 
     </div>
   );
-}
+}, (prev, next) => {
+  return prev.item.quantity === next.item.quantity &&
+         prev.item.custom_price_override === next.item.custom_price_override &&
+         prev.item.discount_override === next.item.discount_override &&
+         prev.item.base_price === next.item.base_price;
+});

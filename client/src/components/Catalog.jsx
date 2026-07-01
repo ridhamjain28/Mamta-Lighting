@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useDeferredValue } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { supabase } from '../supabase';
@@ -61,9 +61,11 @@ export default function Catalog() {
     }
   }
 
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
   const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.model_number && p.model_number.toLowerCase().includes(searchTerm.toLowerCase()))
+    p.name.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
+    (p.model_number && p.model_number.toLowerCase().includes(deferredSearchTerm.toLowerCase()))
   );
 
   return (

@@ -14,6 +14,16 @@ function App() {
   const [activeTab, setActiveTab] = useState('new-quote');
   const { systemMode, setSystemMode, items, quoteType } = useQuoteStore();
 
+  const handleSelectSystem = (mode) => {
+    // Defer the heavy component mount to the next tick so the click paints instantly (0ms INP)
+    setTimeout(() => {
+      startTransition(() => {
+        setSystemMode(mode);
+        setActiveTab('new-quote');
+      });
+    }, 0);
+  };
+
   // Unsaved Changes Protection
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -43,7 +53,7 @@ function App() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Image Quote System Card */}
             <button 
-              onClick={() => startTransition(() => { setSystemMode('Image Quote'); setActiveTab('new-quote'); })}
+              onClick={() => handleSelectSystem('Image Quote')}
               className="bg-white p-10 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group"
             >
               <div className="bg-blue-100 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
@@ -58,7 +68,7 @@ function App() {
 
             {/* Manual Quote System Card */}
             <button 
-              onClick={() => startTransition(() => { setSystemMode('Manual Quote'); setActiveTab('new-quote'); })}
+              onClick={() => handleSelectSystem('Manual Quote')}
               className="bg-white p-10 rounded-3xl shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-xl transition-all text-left group"
             >
               <div className="bg-purple-100 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
@@ -97,19 +107,19 @@ function App() {
 
         <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
           <button 
-            onClick={() => startTransition(() => setActiveTab('new-quote'))}
+            onClick={() => setTimeout(() => startTransition(() => setActiveTab('new-quote')), 0)}
             className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'new-quote' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <FileText className="w-4 h-4" /> New Quote
           </button>
           <button 
-            onClick={() => startTransition(() => setActiveTab('history'))}
+            onClick={() => setTimeout(() => startTransition(() => setActiveTab('history')), 0)}
             className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <HistoryIcon className="w-4 h-4" /> History
           </button>
           <button 
-            onClick={() => startTransition(() => setActiveTab('management'))}
+            onClick={() => setTimeout(() => startTransition(() => setActiveTab('management')), 0)}
             className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'management' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <Settings className="w-4 h-4" /> Products
@@ -117,8 +127,14 @@ function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button 
-            onClick={() => startTransition(() => setSystemMode(null))}
+            <button 
+              onClick={() => {
+                setTimeout(() => {
+                  startTransition(() => {
+                    setSystemMode(null);
+                  });
+                }, 0);
+              }}
             className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 bg-white border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <ArrowLeftRight className="w-4 h-4" /> Switch System
