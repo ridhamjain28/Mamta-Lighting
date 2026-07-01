@@ -208,26 +208,7 @@ export default function ProductManagement() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-white px-2 rounded-t-xl">
-        <button 
-          onClick={() => setActiveTab('image')}
-          className={`py-4 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'image' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-        >
-          Image Products (Catalog)
-        </button>
-        <button 
-          onClick={() => setActiveTab('manual')}
-          className={`py-4 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'manual' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-        >
-          Manual Products (Spreadsheet)
-        </button>
-      </div>
-
-      {activeTab === 'manual' ? (
-        <ManualProductGrid categories={categories} />
-      ) : (
-        <>
+      <>
           {/* Metadata Management Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Categories */}
@@ -490,7 +471,6 @@ export default function ProductManagement() {
             </div>
           </div>
         </>
-      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, startTransition } from 'react';
 import Catalog from './components/Catalog';
 import Cart from './components/Cart';
 import ProductManagement from './components/ProductManagement';
+import ManualQuotePage from './components/ManualQuotePage';
 import History from './components/History';
 import ToastContainer from './components/ToastContainer';
 import { History as HistoryIcon, ArrowLeftRight, PackageSearch, FileText, Settings } from 'lucide-react';
@@ -145,15 +146,23 @@ function App() {
         
         {activeTab === 'new-quote' && (
           <>
-            {/* LEFT PANEL: PRODUCT DISCOVERY */}
-            <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
-              <Catalog />
-            </div>
+            {isImageSystem ? (
+              <>
+                {/* LEFT PANEL: PRODUCT DISCOVERY */}
+                <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
+                  <Catalog />
+                </div>
 
-            {/* RIGHT PANEL: QUOTATION CART */}
-            <div className="w-full md:w-[40%] flex-none md:flex-1 h-auto md:h-full flex flex-col bg-white">
-              <Cart />
-            </div>
+                {/* RIGHT PANEL: QUOTATION CART */}
+                <div className="w-full md:w-[40%] flex-none md:flex-1 h-auto md:h-full flex flex-col bg-white">
+                  <Cart />
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex flex-col">
+                <ManualQuotePage />
+              </div>
+            )}
           </>
         )}
 
