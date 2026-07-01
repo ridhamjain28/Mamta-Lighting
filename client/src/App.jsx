@@ -16,6 +16,30 @@ function App() {
   const [activeTab, setActiveTab] = useState('new-quote');
   const { systemMode, setSystemMode, items, quoteType } = useQuoteStore();
 
+  useEffect(() => {
+    // Disable scrolling number inputs with arrow keys globally
+    const handleKeyDown = (e) => {
+      if (document.activeElement.type === 'number' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+      }
+    };
+    
+    // Disable scrolling number inputs with mouse wheel globally
+    const handleWheel = (e) => {
+      if (document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   const handleSelectSystem = (mode) => {
     // Defer the heavy component mount to the next tick so the click paints instantly (0ms INP)
     setTimeout(() => {
@@ -102,30 +126,6 @@ function App() {
       </div>
     );
   }
-
-  useEffect(() => {
-    // Disable scrolling number inputs with arrow keys globally
-    const handleKeyDown = (e) => {
-      if (document.activeElement.type === 'number' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        e.preventDefault();
-      }
-    };
-    
-    // Disable scrolling number inputs with mouse wheel globally
-    const handleWheel = (e) => {
-      if (document.activeElement.type === 'number') {
-        document.activeElement.blur();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
 
   const isImageSystem = systemMode === 'Image Quote';
   const isSwitchSystem = systemMode === 'Switch Quote';
