@@ -2,10 +2,13 @@ import React, { useState, useEffect, startTransition } from 'react';
 import Catalog from './components/Catalog';
 import Cart from './components/Cart';
 import ProductManagement from './components/ProductManagement';
-import ManualQuotePage from './components/ManualQuotePage';
+import SwitchQuotePage from './components/SwitchQuotePage';
+import WireQuotePage from './components/WireQuotePage';
+import SwitchProductManagement from './components/SwitchProductManagement';
+import WireProductManagement from './components/WireProductManagement';
 import History from './components/History';
 import ToastContainer from './components/ToastContainer';
-import { History as HistoryIcon, ArrowLeftRight, PackageSearch, FileText, Settings } from 'lucide-react';
+import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
 import { supabase } from './supabase';
 
@@ -49,33 +52,48 @@ function App() {
             <p className="text-gray-500 mt-2 text-lg">Select a Quotation System to begin</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Image Quote System Card */}
             <button 
               onClick={() => handleSelectSystem('Image Quote')}
-              className="bg-white p-10 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group"
+              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group"
             >
-              <div className="bg-blue-100 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
-                <PackageSearch className="w-10 h-10 text-blue-600" />
+              <div className="bg-blue-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <PackageSearch className="w-8 h-8 text-blue-600" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Image Quotation</h2>
-              <p className="text-gray-500 mb-8 text-lg">Build visual quotations with product images for clients. Ideal for decorative lights, fans, and fixtures.</p>
-              <span className="text-blue-600 font-semibold flex items-center gap-2 text-lg group-hover:gap-3 transition-all">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Image Quotation</h2>
+              <p className="text-gray-500 mb-6 text-base">Build visual quotations with product images for clients. Ideal for decorative lights, fans, and fixtures.</p>
+              <span className="text-blue-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all">
                 Enter System &rarr;
               </span>
             </button>
 
-            {/* Manual Quote System Card */}
+            {/* Switch Quote System Card */}
             <button 
-              onClick={() => handleSelectSystem('Manual Quote')}
-              className="bg-white p-10 rounded-3xl shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-xl transition-all text-left group"
+              onClick={() => handleSelectSystem('Switch Quote')}
+              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-xl transition-all text-left group"
             >
-              <div className="bg-purple-100 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
-                <FileText className="w-10 h-10 text-purple-600" />
+              <div className="bg-purple-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <ToggleLeft className="w-8 h-8 text-purple-600" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Manual Quotation</h2>
-              <p className="text-gray-500 mb-8 text-lg">Fast, spreadsheet-style quotation builder. Ideal for bulk components like wires, switches, and cables.</p>
-              <span className="text-purple-600 font-semibold flex items-center gap-2 text-lg group-hover:gap-3 transition-all">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Switch Quotation</h2>
+              <p className="text-gray-500 mb-6 text-base">Spreadsheet-style quotation builder for modular switches, plates, and accessories.</p>
+              <span className="text-purple-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all">
+                Enter System &rarr;
+              </span>
+            </button>
+            
+            {/* Wire Quote System Card */}
+            <button 
+              onClick={() => handleSelectSystem('Wire Quote')}
+              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-xl transition-all text-left group"
+            >
+              <div className="bg-green-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Zap className="w-8 h-8 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Wire Quotation</h2>
+              <p className="text-gray-500 mb-6 text-base">Dedicated system for house wires, cables, and conduit pipes with coil-based pricing.</p>
+              <span className="text-green-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all">
                 Enter System &rarr;
               </span>
             </button>
@@ -86,6 +104,7 @@ function App() {
   }
 
   const isImageSystem = systemMode === 'Image Quote';
+  const isSwitchSystem = systemMode === 'Switch Quote';
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col overflow-hidden">
@@ -93,12 +112,12 @@ function App() {
       {/* Top Navigation Bar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 z-30 shadow-sm relative">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg text-white ${isImageSystem ? 'bg-blue-600' : 'bg-purple-600'}`}>
-            {isImageSystem ? <PackageSearch className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+          <div className={`p-2 rounded-lg text-white ${isImageSystem ? 'bg-blue-600' : isSwitchSystem ? 'bg-purple-600' : 'bg-green-600'}`}>
+            {isImageSystem ? <PackageSearch className="w-6 h-6" /> : isSwitchSystem ? <ToggleLeft className="w-6 h-6" /> : <Zap className="w-6 h-6" />}
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900 leading-tight">Mamta Lighting</h1>
-            <p className={`text-xs font-medium tracking-wide uppercase ${isImageSystem ? 'text-blue-600' : 'text-purple-600'}`}>
+            <p className={`text-xs font-medium tracking-wide uppercase ${isImageSystem ? 'text-blue-600' : isSwitchSystem ? 'text-purple-600' : 'text-green-600'}`}>
               {systemMode} System
             </p>
           </div>
@@ -146,7 +165,7 @@ function App() {
         
         {activeTab === 'new-quote' && (
           <>
-            {isImageSystem ? (
+            {systemMode === 'Image Quote' && (
               <>
                 {/* LEFT PANEL: PRODUCT DISCOVERY */}
                 <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
@@ -158,9 +177,15 @@ function App() {
                   <Cart />
                 </div>
               </>
-            ) : (
+            )}
+            {systemMode === 'Switch Quote' && (
               <div className="w-full h-full flex flex-col">
-                <ManualQuotePage />
+                <SwitchQuotePage />
+              </div>
+            )}
+            {systemMode === 'Wire Quote' && (
+              <div className="w-full h-full flex flex-col">
+                <WireQuotePage />
               </div>
             )}
           </>
@@ -177,7 +202,9 @@ function App() {
         {activeTab === 'management' && (
           <div className="w-full flex justify-center p-8 bg-gray-50 overflow-y-auto">
             <div className="max-w-4xl w-full">
-              <ProductManagement />
+              {systemMode === 'Image Quote' && <ProductManagement />}
+              {systemMode === 'Switch Quote' && <SwitchProductManagement />}
+              {systemMode === 'Wire Quote' && <WireProductManagement />}
             </div>
           </div>
         )}

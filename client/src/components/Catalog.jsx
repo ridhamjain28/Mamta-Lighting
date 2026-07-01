@@ -9,7 +9,6 @@ export default function Catalog() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const addItem = useQuoteStore(state => state.addItem);
-  const systemMode = useQuoteStore(state => state.systemMode);
 
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProductForVariant, setSelectedProductForVariant] = useState(null);
@@ -38,7 +37,7 @@ export default function Catalog() {
 
   useEffect(() => {
     fetchProducts();
-  }, [systemMode]);
+  }, []);
 
   async function fetchProducts() {
     setLoading(true);
@@ -49,13 +48,8 @@ export default function Catalog() {
           *,
           brands (name),
           categories (name)
-        `);
-        
-      if (systemMode === 'Manual Quote') {
-        query = query.eq('product_type', 'Manual Product');
-      } else {
-        query = query.or('product_type.eq.Image Product,product_type.is.null');
-      }
+        `)
+        .or('product_type.eq.Image Product,product_type.is.null');
       
       const { data, error } = await query.order('created_at', { ascending: false });
 
@@ -111,30 +105,22 @@ export default function Catalog() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map(product => (
               <div key={product.id} className="card group hover:shadow-md transition-shadow flex flex-col">
-                {systemMode !== 'Manual Quote' && (
-                  <div className="aspect-square bg-gray-100 overflow-hidden relative">
-                    {product.primary_image_url ? (
-                      <img 
-                        src={product.primary_image_url} 
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        No Image
-                      </div>
-                    )}
-                    <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-xs font-medium text-gray-700 shadow-sm">
-                      {product.categories?.name || 'Uncategorized'}
+                <div className="aspect-square bg-gray-100 overflow-hidden relative">
+                  {product.primary_image_url ? (
+                    <img 
+                      src={product.primary_image_url} 
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      No Image
                     </div>
+                  )}
+                  <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-xs font-medium text-gray-700 shadow-sm">
+                    {product.categories?.name || 'Uncategorized'}
                   </div>
-                )}
-                {systemMode === 'Manual Quote' && (
-                  <div className="bg-gray-50 border-b border-gray-100 px-4 py-2 flex items-center justify-between">
-                     <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">{product.categories?.name || 'Uncategorized'}</span>
-                     <span className="text-xs text-gray-400">{product.description || ''}</span>
-                  </div>
-                )}
+                </div>
                 <div className="p-4 flex-1 flex flex-col">
                   <div className="text-sm text-gray-500 mb-1">{product.brands?.name || 'No Brand'}</div>
                   <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>

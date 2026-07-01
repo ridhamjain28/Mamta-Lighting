@@ -12,7 +12,7 @@ const defaultState = {
 
 export const useQuoteStore = create((set, get) => ({
   // --- SYSTEM SEPARATION ---
-  systemMode: null, // 'Image Quote' or 'Manual Quote'
+  systemMode: null, // 'Image Quote', 'Switch Quote', or 'Wire Quote'
   quoteType: null, // Keeps compatibility with old quoteType references
 
   // --- ACTIVE STATE (Spread at root so components don't need to change) ---
@@ -20,7 +20,8 @@ export const useQuoteStore = create((set, get) => ({
 
   // --- BACKGROUND CACHES ---
   imageCache: { ...defaultState },
-  manualCache: { ...defaultState },
+  switchCache: { ...defaultState },
+  wireCache: { ...defaultState },
 
   setSystemMode: (mode) => set((state) => {
     if (state.systemMode === mode) return {};
@@ -42,10 +43,13 @@ export const useQuoteStore = create((set, get) => ({
     };
 
     if (state.systemMode === 'Image Quote') updates.imageCache = currentSnapshot;
-    if (state.systemMode === 'Manual Quote') updates.manualCache = currentSnapshot;
+    if (state.systemMode === 'Switch Quote') updates.switchCache = currentSnapshot;
+    if (state.systemMode === 'Wire Quote') updates.wireCache = currentSnapshot;
 
     // Load state from the target cache
-    const targetCache = mode === 'Image Quote' ? (updates.imageCache || state.imageCache) : (updates.manualCache || state.manualCache);
+    const targetCache = mode === 'Image Quote' ? (updates.imageCache || state.imageCache) : 
+                        mode === 'Switch Quote' ? (updates.switchCache || state.switchCache) :
+                        (updates.wireCache || state.wireCache);
     
     return { ...updates, ...targetCache };
   }),
