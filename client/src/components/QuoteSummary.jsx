@@ -34,15 +34,12 @@ export default function QuoteSummary() {
       addToast("Cart is empty", "error");
       return null;
     }
-    if (!customer.name) {
-      addToast("Please enter a customer name", "error");
-      return null;
-    }
+
 
     const activeItems = items.filter(item => Number(item.quantity) > 0);
 
     const payload = {
-      customer_name: customer.name,
+      customer_name: customer.name || '',
       phone_number: customer.phone,
       project_name: customer.project,
       subtotal,
@@ -189,7 +186,8 @@ export default function QuoteSummary() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Quotation-${customer.name.replace(/\\s+/g, '-')}.pdf`;
+        const customerNameForFile = customer.name ? customer.name.replace(/\s+/g, '-') : 'Walk-in';
+        a.download = `Quotation-${customerNameForFile}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -211,8 +209,9 @@ export default function QuoteSummary() {
 
   const handleWhatsApp = () => {
     if (!successData?.pdfUrl) return;
-    const text = `Hello ${customer.name},\n\nHere is your quotation.\nView/Download PDF: ${successData.pdfUrl}\n\nThank you!`;
-    const url = `https://wa.me/${customer.phone}?text=${encodeURIComponent(text)}`;
+    const greeting = customer.name ? `Hello ${customer.name},\n\n` : `Hello,\n\n`;
+    const text = `${greeting}Here is your quotation.\nView/Download PDF: ${successData.pdfUrl}\n\nThank you!`;
+    const url = `https://wa.me/${customer.phone || ''}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
