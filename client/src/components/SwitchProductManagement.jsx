@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
 import { Plus, Save, Trash2, Tag, Palette, Bookmark, Pencil, X } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 export default function SwitchProductManagement() {
   const [products, setProducts] = useState([]);
@@ -11,6 +12,9 @@ export default function SwitchProductManagement() {
 
   const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
   const [newBrand, setNewBrand] = useState('');
+  
+  const [deleteBrandConfirm, setDeleteBrandConfirm] = useState({ isOpen: false, id: null });
+  const [deleteProductConfirm, setDeleteProductConfirm] = useState({ isOpen: false, id: null });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -96,7 +100,6 @@ export default function SwitchProductManagement() {
   };
 
   const handleDeleteBrand = async (id) => {
-    if (!window.confirm('Are you sure? This will delete the brand and potentially cause errors for products using it.')) return;
     const { error } = await supabase.from('brands').delete().eq('id', id);
     if (!error) { 
       setBrands(brands.filter(b => b.id !== id)); 
@@ -115,7 +118,6 @@ export default function SwitchProductManagement() {
   };
 
   async function handleDelete(id) {
-    if (!window.confirm('Are you sure you want to delete this variant?')) return;
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) {
       addToast('Error deleting product', 'error');
@@ -158,7 +160,7 @@ export default function SwitchProductManagement() {
               )}
               <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => setEditingBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-700 hover:text-purple-600 hover:bg-purple-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
-                <button onClick={() => handleDeleteBrand(b.id)} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                <button onClick={() => setDeleteBrandConfirm({ isOpen: true, id: b.id })} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
               </div>
             </div>
           ))}
@@ -304,8 +306,9 @@ export default function SwitchProductManagement() {
                           </td>
                           <td className="px-4 py-2 text-center">
                             <button
-                              onClick={() => handleDelete(v.id)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                              onClick={() => setDeleteProductConfirm({ isOpen: true, id: v.id })}
+                              className="text-gray-400 hover:text-red-600 transition-colors p-2"
+                              title="Delete Variant"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -320,6 +323,30 @@ export default function SwitchProductManagement() {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteBrandConfirm.isOpen}
+        title="Delete Brand"
+        message="Are you sure? This will delete the brand and potentially cause errors for products using it."
+        onConfirm={() => {
+          handleDeleteBrand(deleteBrandConfirm.id);
+          setDeleteBrandConfirm({ isOpen: false, id: null });
+        }}
+        onCancel={() => setDeleteBrandConfirm({ isOpen: false, id: null })}
+        confirmText="Delete Brand"
+      />
+
+      <ConfirmModal
+        isOpen={deleteProductConfirm.isOpen}
+        title="Delete Variant"
+        message="Are you sure you want to delete this variant?"
+        onConfirm={() => {
+          handleDelete(deleteProductConfirm.id);
+          setDeleteProductConfirm({ isOpen: false, id: null });
+        }}
+        onCancel={() => setDeleteProductConfirm({ isOpen: false, id: null })}
+        confirmText="Delete Variant"
+      />
     </div>
   );
 }

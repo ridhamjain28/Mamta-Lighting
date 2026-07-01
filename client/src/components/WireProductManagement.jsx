@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
 import { Loader2, Zap, Plus, Trash2 } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 export default function WireProductManagement() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = React.useState({ isOpen: false, id: null });
   const [newWire, setNewWire] = useState({ name: '', sub_brand: '', base_price: '' });
   const [adding, setAdding] = useState(false);
   const { addToast } = useToastStore();
@@ -50,8 +52,6 @@ export default function WireProductManagement() {
   }
 
   async function handleDeleteWire(id) {
-    if (!window.confirm('Are you sure you want to delete this wire product?')) return;
-    
     const { error } = await supabase
       .from('products')
       .delete()
@@ -203,7 +203,7 @@ export default function WireProductManagement() {
                           <Loader2 className="w-4 h-4 animate-spin text-green-600" />
                         ) : (
                           <button
-                            onClick={() => handleDeleteWire(product.id)}
+                            onClick={() => setDeleteConfirm({ isOpen: true, id: product.id })}
                             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                             title="Delete Wire"
                           >
@@ -219,6 +219,18 @@ export default function WireProductManagement() {
           </div>
         ))}
       </div>
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Wire"
+        message="Are you sure you want to delete this wire product?"
+        onConfirm={() => {
+          handleDeleteWire(deleteConfirm.id);
+          setDeleteConfirm({ isOpen: false, id: null });
+        }}
+        onCancel={() => setDeleteConfirm({ isOpen: false, id: null })}
+        confirmText="Delete Wire"
+      />
     </div>
   );
 }

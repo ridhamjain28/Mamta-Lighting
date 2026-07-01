@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { FileText, Clock, Search, Trash2, Edit, Copy, RotateCcw } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 
@@ -9,6 +10,7 @@ export default function History({ setActiveTab }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showTrash, setShowTrash] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, quote: null });
   const { addToast } = useToastStore();
 
   useEffect(() => {
@@ -69,8 +71,6 @@ export default function History({ setActiveTab }) {
   };
 
   const handlePermanentDelete = async (quote) => {
-    if (!window.confirm("Are you sure you want to permanently delete this quotation? This cannot be undone.")) return;
-    
     try {
       if (quote.pdf_url) {
         const fileName = quote.pdf_url.split('/').pop();
@@ -262,7 +262,7 @@ export default function History({ setActiveTab }) {
                           <button onClick={() => handleRestore(quote.id)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Restore">
                             <RotateCcw className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handlePermanentDelete(quote)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Permanently Delete">
+                          <button onClick={() => setDeleteConfirm({ isOpen: true, quote })} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Permanently Delete">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </>
@@ -276,6 +276,17 @@ export default function History({ setActiveTab }) {
           </tbody>
         </table>
       </div>
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Quotation"
+        message="Are you sure you want to permanently delete this quotation? This cannot be undone."
+        onConfirm={() => {
+          handlePermanentDelete(deleteConfirm.quote);
+          setDeleteConfirm({ isOpen: false, quote: null });
+        }}
+        onCancel={() => setDeleteConfirm({ isOpen: false, quote: null })}
+        confirmText="Delete Permanently"
+      />
     </div>
   );
 }
