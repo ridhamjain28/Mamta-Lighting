@@ -395,49 +395,6 @@ app.post('/api/quotation', async (req, res) => {
       
     const pdfUrl = publicUrlData.publicUrl;
 
-    // Save to Database mapping exactly to user's schema
-    const { data: quotationData, error: quoteDbError } = await supabase.from('quotations').insert([{
-      quote_number: quoteNumber,
-      customer_name,
-      phone_number: customer_phone,
-      project_name,
-      global_discount: discount_amount || 0,
-      gst_included,
-      gst_rate: 18.0,
-      subtotal,
-      total_discount: discount_amount || 0,
-      tax_amount: gst_amount,
-      grand_total,
-      pdf_url: pdfUrl
-    }]).select();
-
-    if (quoteDbError) throw quoteDbError;
-
-    const quotationId = quotationData[0].id;
-
-    // Save items to quotation_items table
-    const itemInserts = items.map(item => {
-      const listPrice = item.base_price || 0;
-      const customOverride = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
-      const discountPercentage = item.discount_override || 0;
-      const netPrice = customOverride - (customOverride * (discountPercentage / 100));
-      const total = netPrice * item.quantity;
-
-      return {
-        quotation_id: quotationId,
-        product_id: item.id,
-        quantity: item.quantity,
-        base_price: listPrice,
-        discount_override: discountPercentage,
-        custom_price_override: item.custom_price_override,
-        final_unit_price: netPrice,
-        line_total: total
-      };
-    });
-
-    const { error: itemsDbError } = await supabase.from('quotation_items').insert(itemInserts);
-    if (itemsDbError) console.error("Error saving quotation items:", itemsDbError);
-
     res.json({ success: true, pdfUrl });
 
   } catch (error) {
