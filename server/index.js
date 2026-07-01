@@ -100,7 +100,8 @@ app.post('/api/quotation', async (req, res) => {
       gst_amount, 
       grand_total,
       gst_included,
-      hide_list_price
+      hide_list_price,
+      quote_type
     } = req.body;
 
     const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
@@ -131,7 +132,9 @@ app.post('/api/quotation', async (req, res) => {
       return item;
     }));
 
-    // Build items HTML with the image column
+    // Build items HTML based on quote type
+    const isManualQuote = quote_type === 'Manual Quote';
+
     const itemsHtml = itemsWithBase64Images.map((item, index) => {
       const listPrice = item.base_price || 0;
       const customOverride = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
@@ -141,25 +144,44 @@ app.post('/api/quotation', async (req, res) => {
       
       const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
       const displayProductName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
-      const imageUrl = item._base64_image 
-        ? `<img src="${item._base64_image}" class="product-img" />` 
-        : (logos.na ? `<img src="${logos.na}" class="product-img" />` : '');
+      
+      if (isManualQuote) {
+        return `
+          <tr>
+            <td class="text-center font-bold">${index + 1}</td>
+            <td class="font-bold">${displayProductName}</td>
+            <td class="text-center font-bold">${item.quantity}</td>
+            <td class="text-right font-bold">${customOverride.toFixed(2)}</td>
+            <td class="text-right font-bold">${discountPercentage > 0 ? discountPercentage + '%' : '-'}</td>
+            <td class="text-right font-bold">${total.toFixed(2)}</td>
+          </tr>
+        `;
+      } else {
+        const imageUrl = item._base64_image 
+          ? `<img src="${item._base64_image}" class="product-img" />` 
+          : (logos.na ? `<img src="${logos.na}" class="product-img" />` : '');
 
-      return `
-        <tr>
-          <td class="text-center font-bold">${index + 1}</td>
-          <td class="text-center">${imageUrl}</td>
-          <td class="font-bold">${displayProductName}</td>
-          <td class="text-center font-bold">${item.quantity}</td>
-          ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
-          <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
-          <td class="text-right font-bold">${total.toFixed(2)}</td>
-        </tr>
-      `;
+        return `
+          <tr>
+            <td class="text-center font-bold">${index + 1}</td>
+            <td class="text-center">${imageUrl}</td>
+            <td class="font-bold">${displayProductName}</td>
+            <td class="text-center font-bold">${item.quantity}</td>
+            ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
+            <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
+            <td class="text-right font-bold">${total.toFixed(2)}</td>
+          </tr>
+        `;
+      }
     }).join('');
 
     // One empty row between items and totals
-    let emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td><td></td>${hide_list_price ? '' : '<td></td>'}<td></td><td></td></tr>`;
+    let emptyRowsHtml = '';
+    if (isManualQuote) {
+       emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    } else {
+       emptyRowsHtml = `<tr><td><br><br></td><td></td><td></td><td></td>${hide_list_price ? '' : '<td></td>'}<td></td><td></td></tr>`;
+    }
 
     // Puppeteer Header Template
     const headerTemplate = `
@@ -234,45 +256,77 @@ app.post('/api/quotation', async (req, res) => {
 
         <table>
           <thead>
-            <tr>
-              <th width="5%">S.No</th>
-              <th width="${hide_list_price ? '24%' : '12%'}">Image</th>
-              <th width="35%">Product</th>
-              <th width="8%">Qty</th>
-              ${hide_list_price ? '' : '<th width="12%">List Price</th>'}
-              <th width="12%">Net Price</th>
-              <th width="16%">Total</th>
-            </tr>
+            ${isManualQuote ? `
+              <tr>
+                <th width="5%">S.No</th>
+                <th width="45%">Description</th>
+                <th width="10%">Qty</th>
+                <th width="12%">Rate</th>
+                <th width="12%">Discount</th>
+                <th width="16%">Amount</th>
+              </tr>
+            ` : `
+              <tr>
+                <th width="5%">S.No</th>
+                <th width="${hide_list_price ? '24%' : '12%'}">Image</th>
+                <th width="35%">Product</th>
+                <th width="8%">Qty</th>
+                ${hide_list_price ? '' : '<th width="12%">List Price</th>'}
+                <th width="12%">Net Price</th>
+                <th width="16%">Total</th>
+              </tr>
+            `}
           </thead>
           <tbody>
             ${itemsHtml}
             ${emptyRowsHtml}
             <tr>
-              <td style="border-bottom: none; border-left: none;"></td>
-              <td style="border-bottom: none;"></td>
-              <td style="border-bottom: none;"></td>
-              <td style="border-bottom: none;"></td>
-              ${hide_list_price ? '' : '<td style="border-bottom: none;"></td>'}
+              ${isManualQuote ? `
+                <td style="border-bottom: none; border-left: none;"></td>
+                <td style="border-bottom: none;"></td>
+                <td style="border-bottom: none;"></td>
+                <td style="border-bottom: none;"></td>
+              ` : `
+                <td style="border-bottom: none; border-left: none;"></td>
+                <td style="border-bottom: none;"></td>
+                <td style="border-bottom: none;"></td>
+                <td style="border-bottom: none;"></td>
+                ${hide_list_price ? '' : '<td style="border-bottom: none;"></td>'}
+              `}
               <td class="text-right font-bold">Subtotal</td>
               <td class="text-right font-bold">${parseFloat(subtotal).toFixed(2)}</td>
             </tr>
             ${gst_included ? `
             <tr>
-              <td style="border-bottom: none; border-top: none; border-left: none;"></td>
-              <td style="border-bottom: none; border-top: none;"></td>
-              <td style="border-bottom: none; border-top: none;"></td>
-              <td style="border-bottom: none; border-top: none;"></td>
-              ${hide_list_price ? '' : '<td style="border-bottom: none; border-top: none;"></td>'}
+              ${isManualQuote ? `
+                <td style="border-bottom: none; border-top: none; border-left: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+              ` : `
+                <td style="border-bottom: none; border-top: none; border-left: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+                <td style="border-bottom: none; border-top: none;"></td>
+                ${hide_list_price ? '' : '<td style="border-bottom: none; border-top: none;"></td>'}
+              `}
               <td class="text-right font-bold">18% GST</td>
               <td class="text-right font-bold">${parseFloat(gst_amount).toFixed(2)}</td>
             </tr>
             ` : ''}
             <tr style="background-color: #d9ead3;">
-              <td style="border-top: none; border-left: none; background-color: #fff;"></td>
-              <td style="border-top: none; background-color: #fff;"></td>
-              <td style="border-top: none; background-color: #fff;"></td>
-              <td style="border-top: none; background-color: #fff;"></td>
-              ${hide_list_price ? '' : '<td style="border-top: none; background-color: #fff;"></td>'}
+              ${isManualQuote ? `
+                <td style="border-top: none; border-left: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+              ` : `
+                <td style="border-top: none; border-left: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+                <td style="border-top: none; background-color: #fff;"></td>
+                ${hide_list_price ? '' : '<td style="border-top: none; background-color: #fff;"></td>'}
+              `}
               <td class="text-right font-bold">Total</td>
               <td class="text-right font-bold">${Math.round(grand_total).toLocaleString()}</td>
             </tr>

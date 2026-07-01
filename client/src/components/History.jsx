@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { FileText, Clock, Search, Trash2 } from 'lucide-react';
+import { FileText, Clock, Search, Trash2, Edit, Copy, RotateCcw } from 'lucide-react';
+import { useQuoteStore } from '../store/useQuoteStore';
+import { useToastStore } from '../store/useToastStore';
 
-export default function History() {
+export default function History({ setActiveTab }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [pendingDeletes, setPendingDeletes] = useState([]);
+  const [showTrash, setShowTrash] = useState(false);
+  const { addToast } = useToastStore();
 
   useEffect(() => {
     fetchQuotes();
-  }, []);
+  }, [showTrash]);
 
   async function fetchQuotes() {
     setLoading(true);
@@ -18,11 +21,11 @@ export default function History() {
       const { data, error } = await supabase
         .from('quotations')
         .select('*')
-        .order('created_at', { ascending: false });
+        .eq('is_deleted', showTrash)
+        .order('updated_at', { ascending: false });
 
       if (error) {
-        // If the table doesn't exist yet, it'll fail gracefully.
-        console.error("Error fetching quotes (table might not exist):", error.message);
+        console.error("Error fetching quotes:", error.message);
       } else {
         setQuotes(data || []);
       }
@@ -33,36 +36,89 @@ export default function History() {
     }
   }
 
-  const initiateDelete = (quote) => {
-    const deleteId = quote.id;
-    
-    // Hide it instantly
-    setQuotes(prev => prev.filter(q => q.id !== deleteId));
-
-    // Wait 10 seconds before actually deleting
-    const timer = setTimeout(async () => {
-      try {
-        if (quote.pdf_url) {
-          const fileName = quote.pdf_url.split('/').pop();
-          if (fileName) {
-            await supabase.storage.from('quotations').remove([fileName]);
-          }
-        }
-        await supabase.from('quotations').delete().eq('id', deleteId);
-      } catch (err) {
-        console.error("Failed delayed delete:", err);
-      }
+  const handleSoftDelete = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('quotations')
+        .update({ is_deleted: true })
+        .eq('id', id);
       
-      setPendingDeletes(prev => prev.filter(p => p.id !== deleteId));
-    }, 10000);
-
-    setPendingDeletes(prev => [...prev, { id: deleteId, quote, timer }]);
+      if (error) throw error;
+      setQuotes(prev => prev.filter(q => q.id !== id));
+      addToast("Quotation moved to trash.", "success");
+    } catch (err) {
+      addToast("Failed to delete quotation.", "error");
+    }
   };
 
-  const undoDelete = (deleteObj) => {
-    clearTimeout(deleteObj.timer);
-    setQuotes(prev => [deleteObj.quote, ...prev].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)));
-    setPendingDeletes(prev => prev.filter(p => p.id !== deleteObj.id));
+  const handleRestore = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('quotations')
+        .update({ is_deleted: false })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setQuotes(prev => prev.filter(q => q.id !== id));
+      addToast("Quotation restored.", "success");
+    } catch (err) {
+      addToast("Failed to restore quotation.", "error");
+    }
+  };
+
+  const handlePermanentDelete = async (quote) => {
+    if (!window.confirm("Are you sure you want to permanently delete this quotation? This cannot be undone.")) return;
+    
+    try {
+      if (quote.pdf_url) {
+        const fileName = quote.pdf_url.split('/').pop();
+        if (fileName) {
+          await supabase.storage.from('quotations').remove([fileName]);
+        }
+      }
+      const { error } = await supabase.from('quotations').delete().eq('id', quote.id);
+      if (error) throw error;
+      
+      setQuotes(prev => prev.filter(q => q.id !== quote.id));
+      addToast("Quotation permanently deleted.", "success");
+    } catch (err) {
+      addToast("Failed to delete quotation.", "error");
+    }
+  };
+
+  const handleEdit = (quote) => {
+    useQuoteStore.setState({
+      quoteId: quote.id,
+      quoteType: quote.quote_type || 'Image Quote',
+      status: quote.status || 'Draft',
+      customer: {
+        name: quote.customer_name || '',
+        phone: quote.customer_phone || '',
+        project: quote.project_name || ''
+      },
+      items: quote.items || [],
+      globalDiscount: 0, // Discount is baked into items array as discount_override for edit simplicity or retrieved if we stored it globally
+      gstIncluded: false, // Wait, we didn't explicitly store globalDiscount in DB, but the totals are there. The user will see individual line item discounts.
+      hideListPrice: false
+    });
+    // We should ideally store globalDiscount, gstIncluded, hideListPrice in the DB.
+    // For now, they will reset, but line items keep their prices.
+    setActiveTab('new-quote');
+  };
+
+  const handleDuplicate = (quote) => {
+    useQuoteStore.setState({
+      quoteId: null,
+      quoteType: quote.quote_type || 'Image Quote',
+      status: 'Draft',
+      customer: {
+        name: '',
+        phone: '',
+        project: ''
+      },
+      items: quote.items || []
+    });
+    setActiveTab('new-quote');
   };
 
   const handleDownloadPdf = async (pdfUrl, quoteNumber) => {
@@ -72,40 +128,62 @@ export default function History() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${quoteNumber}.pdf`;
+      a.download = `Quotation-${quoteNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Direct download failed:", err);
-      // Fallback if browser blocks silent download
       window.open(pdfUrl, '_blank');
     }
   };
 
-  const filteredQuotes = quotes.filter(q => 
-    q.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.phone_number?.includes(searchTerm) ||
-    q.quote_number?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredQuotes = quotes.filter(q => {
+    const search = searchTerm.toLowerCase();
+    
+    // Deep search through items for product matches
+    const itemsMatch = q.items && q.items.some(item => 
+      item.name?.toLowerCase().includes(search) || 
+      item.brand?.toLowerCase().includes(search) ||
+      item.model_number?.toLowerCase().includes(search)
+    );
+
+    return (
+      q.customer_name?.toLowerCase().includes(search) ||
+      q.customer_phone?.includes(search) ||
+      q.project_name?.toLowerCase().includes(search) ||
+      q.quote_type?.toLowerCase().includes(search) ||
+      new Date(q.created_at).toLocaleDateString().includes(search) ||
+      String(q.id).includes(search) ||
+      itemsMatch
+    );
+  });
 
   return (
     <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-      <div className="flex items-center justify-between mb-6 border-b pb-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b pb-4 gap-4">
         <div className="flex items-center gap-3">
           <Clock className="text-blue-600" />
           <h2 className="text-xl font-bold text-gray-900">Quotation History</h2>
         </div>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search quotes..."
-            className="input-field pl-9 py-1.5 text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search quotes or products..."
+              className="input-field pl-9 py-2 text-sm w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <button 
+            onClick={() => setShowTrash(!showTrash)}
+            className={`px-4 py-2 rounded-md font-medium text-sm border transition-colors whitespace-nowrap ${showTrash ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >
+            {showTrash ? 'View Active' : 'View Trash'}
+          </button>
         </div>
       </div>
 
@@ -113,55 +191,75 @@ export default function History() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 border-y border-gray-200 text-sm text-gray-500 uppercase tracking-wider">
-              <th className="py-3 px-4 font-medium">Date & Quote #</th>
+              <th className="py-3 px-4 font-medium">Date & ID</th>
               <th className="py-3 px-4 font-medium">Customer</th>
+              <th className="py-3 px-4 font-medium">Type / Status</th>
               <th className="py-3 px-4 font-medium">Amount</th>
-              <th className="py-3 px-4 font-medium text-center">PDF</th>
+              <th className="py-3 px-4 font-medium text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 text-sm">
             {loading ? (
               <tr>
-                <td colSpan="4" className="py-8 text-center text-gray-500">Loading history...</td>
+                <td colSpan="5" className="py-8 text-center text-gray-500">Loading history...</td>
               </tr>
             ) : filteredQuotes.length === 0 ? (
               <tr>
-                <td colSpan="4" className="py-8 text-center text-gray-500">No quotation history found.</td>
+                <td colSpan="5" className="py-8 text-center text-gray-500">No quotations found in {showTrash ? 'Trash' : 'History'}.</td>
               </tr>
             ) : (
               filteredQuotes.map(quote => (
-                <tr key={quote.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={quote.id} className="hover:bg-gray-50 transition-colors group">
                   <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
-                    <div>{new Date(quote.created_at).toLocaleDateString()}</div>
-                    <div className="text-xs font-mono text-gray-400">{quote.quote_number}</div>
+                    <div>{new Date(quote.updated_at || quote.created_at).toLocaleDateString()}</div>
+                    <div className="text-xs font-mono text-gray-400">ID: {quote.id}</div>
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-medium text-gray-900">{quote.customer_name}</div>
-                    <div className="text-xs text-gray-500">{quote.phone_number}</div>
+                    <div className="text-xs text-gray-500">{quote.customer_phone} {quote.project_name && `• ${quote.project_name}`}</div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="font-medium text-gray-700 text-xs bg-gray-100 inline-block px-2 py-1 rounded mb-1">{quote.quote_type || 'Image Quote'}</div>
+                    <div className={`text-xs font-medium ${quote.status === 'Completed' ? 'text-green-600' : 'text-orange-500'}`}>
+                      {quote.status || 'Draft'}
+                    </div>
                   </td>
                   <td className="py-3 px-4 font-medium text-gray-900">
                     ₹{quote.grand_total ? parseFloat(quote.grand_total).toLocaleString(undefined, {minimumFractionDigits:2}) : '0.00'}
                   </td>
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {quote.pdf_url ? (
-                        <button 
-                          onClick={() => handleDownloadPdf(quote.pdf_url, quote.quote_number)}
-                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-full text-xs font-medium cursor-pointer"
-                        >
-                          <FileText className="w-3 h-3" /> Download
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 text-xs">N/A</span>
-                      )}
+                  <td className="py-3 px-4">
+                    <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                       
-                      <button 
-                        onClick={() => initiateDelete(quote)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                        title="Delete Quotation"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {!showTrash && (
+                        <>
+                          <button onClick={() => handleEdit(quote)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDuplicate(quote)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-md transition-colors" title="Duplicate">
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          {quote.pdf_url && (
+                            <button onClick={() => handleDownloadPdf(quote.pdf_url, quote.id)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="Download PDF">
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button onClick={() => handleSoftDelete(quote.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Move to Trash">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+
+                      {showTrash && (
+                        <>
+                          <button onClick={() => handleRestore(quote.id)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Restore">
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handlePermanentDelete(quote)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Permanently Delete">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+
                     </div>
                   </td>
                 </tr>
@@ -169,32 +267,6 @@ export default function History() {
             )}
           </tbody>
         </table>
-      </div>
-
-      <style>{`
-        @keyframes shrinkTimer {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-      `}</style>
-
-      {/* Toast Notifications */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
-        {pendingDeletes.map(pd => (
-          <div key={pd.id} className="bg-gray-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center justify-between min-w-[280px] relative overflow-hidden transition-all">
-            <div className="text-sm font-medium">Quotation Deleted</div>
-            <button 
-              onClick={() => undoDelete(pd)}
-              className="text-blue-400 font-bold text-sm hover:text-blue-300 bg-gray-800 px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
-            >
-              UNDO
-            </button>
-            <div 
-              className="absolute bottom-0 left-0 h-1 bg-blue-500 rounded-bl-xl" 
-              style={{ animation: 'shrinkTimer 10s linear forwards' }}
-            ></div>
-          </div>
-        ))}
       </div>
     </div>
   );

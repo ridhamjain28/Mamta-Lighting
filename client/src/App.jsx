@@ -1,13 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Catalog from './components/Catalog';
 import Cart from './components/Cart';
 import ProductManagement from './components/ProductManagement';
 import History from './components/History';
 import ToastContainer from './components/ToastContainer';
 import { PackageSearch, FileText, Settings, History as HistoryIcon } from 'lucide-react';
+import { useQuoteStore } from './store/useQuoteStore';
+import ManualQuote from './components/ManualQuote';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('catalog');
+  const [activeTab, setActiveTab] = useState('new-quote');
+  const { quoteType, setQuoteMetadata, items } = useQuoteStore();
+
+  // Unsaved Changes Protection
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (items && items.length > 0) {
+        const message = "You have unsaved changes. Are you sure you want to leave?";
+        e.preventDefault();
+        e.returnValue = message;
+        return message;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [items]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col overflow-hidden">
@@ -26,8 +43,8 @@ function App() {
 
         <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
           <button 
-            onClick={() => setActiveTab('catalog')}
-            className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'catalog' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+            onClick={() => setActiveTab('new-quote')}
+            className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'new-quote' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
           >
             <FileText className="w-4 h-4" /> New Quote
           </button>
@@ -49,24 +66,76 @@ function App() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
         
-        {activeTab === 'catalog' && (
+        {activeTab === 'new-quote' && (
           <>
-            {/* LEFT PANEL: PRODUCT DISCOVERY */}
-            <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
-              <Catalog />
-            </div>
+            {!quoteType ? (
+              <div className="w-full flex items-center justify-center bg-gray-50 p-8">
+                <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Image Quote Card */}
+                  <button 
+                    onClick={() => setQuoteMetadata({ quoteType: 'Image Quote' })}
+                    className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left group"
+                  >
+                    <div className="bg-blue-100 w-16 h-16 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                      <PackageSearch className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Image Quote</h2>
+                    <ul className="text-gray-500 space-y-2 mb-6">
+                      <li>• Lights</li>
+                      <li>• Fans</li>
+                      <li>• Decorative Fixtures</li>
+                      <li>• Products with Images</li>
+                    </ul>
+                    <span className="text-blue-600 font-medium flex items-center gap-2">
+                      Start Image Quote &rarr;
+                    </span>
+                  </button>
 
-            {/* RIGHT PANEL: QUOTATION CART */}
-            <div className="w-full md:w-[40%] flex-none md:flex-1 h-auto md:h-full flex flex-col bg-white">
-              <Cart />
-            </div>
+                  {/* Manual Quote Card */}
+                  <button 
+                    onClick={() => setQuoteMetadata({ quoteType: 'Manual Quote' })}
+                    className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left group"
+                  >
+                    <div className="bg-purple-100 w-16 h-16 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                      <FileText className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Manual Quote</h2>
+                    <ul className="text-gray-500 space-y-2 mb-6">
+                      <li>• Wires</li>
+                      <li>• Switches</li>
+                      <li>• MCBs & Cables</li>
+                      <li>• Accessories</li>
+                    </ul>
+                    <span className="text-purple-600 font-medium flex items-center gap-2">
+                      Start Manual Quote &rarr;
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : quoteType === 'Image Quote' ? (
+              <>
+                {/* LEFT PANEL: PRODUCT DISCOVERY */}
+                <div className="w-full md:w-[60%] flex-none md:flex-1 h-auto md:h-full flex flex-col border-b md:border-b-0 md:border-r border-gray-300 bg-white relative z-30">
+                  <Catalog />
+                </div>
+
+                {/* RIGHT PANEL: QUOTATION CART */}
+                <div className="w-full md:w-[40%] flex-none md:flex-1 h-auto md:h-full flex flex-col bg-white">
+                  <Cart />
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex flex-col bg-white">
+                 <ManualQuote />
+              </div>
+            )}
           </>
         )}
 
         {activeTab === 'history' && (
           <div className="w-full flex justify-center p-8 bg-gray-50 overflow-y-auto">
             <div className="max-w-4xl w-full">
-              <History />
+              <History setActiveTab={setActiveTab} />
             </div>
           </div>
         )}

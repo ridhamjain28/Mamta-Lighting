@@ -18,6 +18,7 @@ export default function ProductManagement() {
     base_price: '',
     description: '',
     variants: [],
+    product_type: 'Image Product'
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
@@ -64,7 +65,8 @@ export default function ProductManagement() {
       category_id: prod.category_id || '',
       base_price: prod.base_price || '',
       description: prod.description || '',
-      variants: prod.variants || []
+      variants: prod.variants || [],
+      product_type: prod.product_type || 'Image Product'
     });
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -157,7 +159,8 @@ export default function ProductManagement() {
         category_id: formData.category_id ? parseInt(formData.category_id) : null,
         base_price: parseFloat(formData.base_price) || 0,
         description: formData.description,
-        variants: formData.variants
+        variants: formData.variants,
+        product_type: formData.product_type
       };
 
       if (primary_image_url !== undefined) {
@@ -257,6 +260,26 @@ export default function ProductManagement() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Product Type *</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="product_type" value="Image Product" className="text-blue-600 focus:ring-blue-500" checked={formData.product_type === 'Image Product'} onChange={e => setFormData({...formData, product_type: e.target.value})} />
+                  <span className="text-sm font-medium text-gray-700">Image Product</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="product_type" value="Manual Product" className="text-blue-600 focus:ring-blue-500" checked={formData.product_type === 'Manual Product'} onChange={e => setFormData({...formData, product_type: e.target.value})} />
+                  <span className="text-sm font-medium text-gray-700">Manual Product</span>
+                </label>
+              </div>
+            </div>
+            
+            <div className="col-span-2 md:col-span-1">
+              {/* Spacer or additional future fields */}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
               <input required type="text" className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
             </div>
@@ -290,9 +313,9 @@ export default function ProductManagement() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {editingId ? 'Update Image (Optional)' : 'Product Image'}
+                {editingId ? 'Update Image (Optional)' : (formData.product_type === 'Manual Product' ? 'Product Image (Optional)' : 'Product Image *')}
               </label>
-              <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+              <input required={!editingId && formData.product_type === 'Image Product'} type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
             </div>
             
             {/* Product Variations */}

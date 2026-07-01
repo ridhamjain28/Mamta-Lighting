@@ -49,6 +49,7 @@ export default function Catalog() {
           brands (name),
           categories (name)
         `)
+        .or('product_type.eq.Image Product,product_type.is.null')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

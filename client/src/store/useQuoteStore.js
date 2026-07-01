@@ -7,6 +7,11 @@ export const useQuoteStore = create((set, get) => ({
   // The Shopping Cart
   items: [],
   
+  // Quotation Metadata
+  quoteId: null,
+  quoteType: null,
+  status: 'Draft',
+
   // Settings
   globalDiscount: 0,
   gstIncluded: false, // if false, GST is added on top. if true, prices already include GST, but we'll still show the breakdown. Wait, standard is "GST Extra". Let's treat gstIncluded as "GST Added to total".
@@ -21,6 +26,8 @@ export const useQuoteStore = create((set, get) => ({
   
   toggleGst: (included) => set({ gstIncluded: included }),
   toggleHideListPrice: (hide) => set({ hideListPrice: hide }),
+
+  setQuoteMetadata: (metadata) => set((state) => ({ ...state, ...metadata })),
 
   addItem: (product) => set((state) => {
     // Treat different wattages of the same product as different cart items
@@ -66,7 +73,16 @@ export const useQuoteStore = create((set, get) => ({
     items: state.items.filter(item => (item.cartItemId || item.id) !== cartItemId)
   })),
 
-  clearCart: () => set({ items: [], customer: { name: '', phone: '', project: '' }, globalDiscount: 0, gstIncluded: false }),
+  clearCart: () => set({ 
+    items: [], 
+    customer: { name: '', phone: '', project: '' }, 
+    globalDiscount: 0, 
+    gstIncluded: false,
+    hideListPrice: false,
+    quoteId: null,
+    quoteType: null,
+    status: 'Draft'
+  }),
 
   // Derived Calculations
   getTotals: () => {
