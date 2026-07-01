@@ -73,6 +73,7 @@ export default function QuoteSummary() {
         // Delete existing items
         await supabase.from('quotation_items').delete().eq('quotation_id', savedQuote.id);
       } else {
+        payload.quote_number = 'QT-' + Math.floor(100000 + Math.random() * 900000).toString();
         const { data, error } = await supabase
           .from('quotations')
           .insert([payload])
