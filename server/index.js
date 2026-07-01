@@ -262,7 +262,7 @@ app.post('/api/quotation', async (req, res) => {
           </div>
           <div class="customer-info-right">
             Date: ${dateStr}<br>
-            Lighting
+            ${quote_type === 'Wire Quote' ? 'Wire' : quote_type === 'Switch Quote' ? 'Switch' : 'Lighting'}
           </div>
         </div>
 
