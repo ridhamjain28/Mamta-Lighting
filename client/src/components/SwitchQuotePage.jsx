@@ -95,17 +95,17 @@ export default function SwitchQuotePage() {
 
   // Reset dependent dropdowns
   useEffect(() => {
-    if (selectedBrandId && !subBrands.includes(selectedSubBrand) && subBrands.length > 0) {
-      setSelectedSubBrand(subBrands[0] || '');
-    } else if (subBrands.length === 0) {
+    if (subBrands.length === 0) {
+      setSelectedSubBrand('');
+    } else if (selectedSubBrand && !subBrands.includes(selectedSubBrand)) {
       setSelectedSubBrand('');
     }
   }, [selectedBrandId, subBrands]);
 
   useEffect(() => {
-    if (selectedBrandId && !colors.includes(selectedColor) && colors.length > 0) {
-      setSelectedColor(colors[0] || '');
-    } else if (colors.length === 0) {
+    if (colors.length === 0) {
+      setSelectedColor('');
+    } else if (selectedColor && !colors.includes(selectedColor)) {
       setSelectedColor('');
     }
   }, [selectedBrandId, selectedSubBrand, colors]);
@@ -273,7 +273,7 @@ export default function SwitchQuotePage() {
 
       <div className="flex-1 px-2 md:px-4 py-3">
         {!selectedBrandId ? (
-          <div className="text-center py-12 text-gray-400 font-medium">Please select a brand to view pricing.</div>
+          <div className="text-center py-12 text-gray-600 font-medium">Please select a brand to view pricing.</div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <table className="w-full text-sm">
@@ -309,7 +309,7 @@ export default function SwitchQuotePage() {
                           {isUnavailable && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">N/A</span>}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-right text-gray-400 tabular-nums">
+                      <td className="px-3 py-2 text-right text-gray-600 tabular-nums">
                         {variant ? variant.base_price.toFixed(2) : '—'}
                       </td>
                       <td className="px-3 py-2 text-center">

@@ -23,7 +23,7 @@ export default function Cart() {
       {/* Cart Items Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {items.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-400">
+          <div className="h-full flex flex-col items-center justify-center text-gray-600">
             <FileText className="w-12 h-12 mb-4 opacity-20" />
             <p>Cart is empty. Add products to begin.</p>
           </div>
@@ -40,7 +40,7 @@ export default function Cart() {
               <h4 className="font-semibold text-gray-900 pr-6">
                 {item.name} {item.selected_wattage && <span className="text-blue-600 font-bold ml-1">({item.selected_wattage})</span>}
               </h4>
-              <div className="text-xs text-gray-500 mb-3">Model: {item.model_number || 'N/A'}</div>
+              <div className="text-xs text-gray-700 mb-3">Model: {item.model_number || 'N/A'}</div>
               
               <div className="flex items-center gap-4 text-sm">
                 {/* Quantity */}
@@ -64,7 +64,7 @@ export default function Cart() {
                 {/* Price & Discount */}
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500 w-12 text-xs">Price:</span>
+                    <span className="text-gray-700 w-12 text-xs">Price:</span>
                     <input 
                       type="number" 
                       className="border border-gray-300 rounded p-1 w-24 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -73,7 +73,7 @@ export default function Cart() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500 w-16 text-xs">Disc (%):</span>
+                    <span className="text-gray-700 w-16 text-xs">Disc (%):</span>
                     <input 
                       type="number" 
                       className="border border-gray-300 rounded p-1 w-24 text-right text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"

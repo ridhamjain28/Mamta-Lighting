@@ -131,25 +131,14 @@ export default function WireQuotePage() {
   };
 
   const groupedProducts = useMemo(() => {
-    const groups = {
-      '0.75 SQ MM': [],
-      '1 SQ MM': [],
-      '1.5 SQ MM': [],
-      '2.5 SQ MM': [],
-      '4 SQ MM': [],
-      '6 SQ MM': [],
-      'Other': []
-    };
+    const groups = {};
 
     allProducts.forEach(p => {
-      const name = p.name.toUpperCase();
-      if (name.includes('0.75 SQ MM')) groups['0.75 SQ MM'].push(p);
-      else if (name.includes('1.5 SQ MM')) groups['1.5 SQ MM'].push(p);
-      else if (name.includes('2.5 SQ MM')) groups['2.5 SQ MM'].push(p);
-      else if (name.includes('1 SQ MM')) groups['1 SQ MM'].push(p);
-      else if (name.includes('4 SQ MM')) groups['4 SQ MM'].push(p);
-      else if (name.includes('6 SQ MM')) groups['6 SQ MM'].push(p);
-      else groups['Other'].push(p);
+      const cat = p.sub_brand || 'Other';
+      if (!groups[cat]) {
+        groups[cat] = [];
+      }
+      groups[cat].push(p);
     });
 
     Object.keys(groups).forEach(cat => {
@@ -162,7 +151,10 @@ export default function WireQuotePage() {
       });
     });
 
-    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+    // Return entries sorted by group name
+    return Object.entries(groups)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .filter(([_, items]) => items.length > 0);
   }, [allProducts, localOverrides, getOverride]);
 
   if (loading) {
@@ -206,14 +198,14 @@ export default function WireQuotePage() {
       {/* Product Table */}
       <div className="flex-1 px-2 md:px-4 py-3">
         {groupedProducts.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
+          <div className="text-center py-12 text-gray-700">
             No wire products found.
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm text-gray-900">
               <thead>
-                <tr className="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider">
+                <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
                   <th className="text-left px-4 py-3 font-semibold">Wire Name</th>
                   <th className="text-right px-3 py-3 font-semibold w-24">List ₹</th>
                   <th className="text-center px-3 py-3 font-semibold w-20">Qty</th>
@@ -252,12 +244,12 @@ export default function WireQuotePage() {
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-2">
                               {isActive && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                              <span className={isActive ? 'font-medium text-gray-900' : 'text-gray-700'}>
+                              <span className={isActive ? 'font-bold text-gray-900' : 'text-gray-700 font-medium'}>
                                 {product.name}
                               </span>
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-right text-gray-400 tabular-nums">
+                          <td className="px-3 py-2 text-right text-gray-700 font-medium tabular-nums">
                             {(product.base_price ?? 0).toFixed(2)}
                           </td>
                           <td className="px-3 py-2 text-center">
@@ -267,8 +259,8 @@ export default function WireQuotePage() {
                               value={qty === 0 ? '' : qty}
                               onChange={(e) => handleQtyChange(product, e.target.value)}
                               placeholder="0"
-                              className={`w-16 text-center text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-green-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                                isActive ? 'border-green-300 bg-white font-bold text-green-700' : 'border-gray-200 bg-gray-50'
+                              className={`w-16 text-center text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-green-400 text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                isActive ? 'border-green-300 bg-white font-bold' : 'border-gray-200 bg-gray-50'
                               }`}
                             />
                           </td>
@@ -279,7 +271,7 @@ export default function WireQuotePage() {
                               step="0.01"
                               value={manualPrice}
                               onChange={(e) => handlePriceChange(product, e.target.value)}
-                              className={`w-24 text-right text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-green-400 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                              className={`w-24 text-right text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-green-400 text-gray-900 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                                 isActive ? 'border-green-300 bg-white' : 'border-gray-200 bg-gray-50'
                               }`}
                             />
@@ -293,12 +285,12 @@ export default function WireQuotePage() {
                               value={disc}
                               onChange={(e) => handleDiscChange(product, e.target.value)}
                               placeholder="—"
-                              className={`w-16 text-center text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-red-300 text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                                isActive ? 'border-green-300 bg-white' : 'border-gray-200 bg-gray-50'
+                              className={`w-16 text-center text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-red-300 text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                isActive ? 'border-green-300 bg-white text-red-700 font-medium' : 'border-gray-200 bg-gray-50'
                               }`}
                             />
                           </td>
-                          <td className={`px-4 py-2 text-right tabular-nums font-medium ${isActive ? 'text-gray-900 font-bold' : 'text-gray-300'}`}>
+                          <td className={`px-4 py-2 text-right tabular-nums font-medium ${isActive ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>
                             {isActive ? `₹${total.toFixed(2)}` : '—'}
                           </td>
                         </tr>

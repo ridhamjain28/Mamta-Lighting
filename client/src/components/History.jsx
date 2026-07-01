@@ -177,7 +177,7 @@ export default function History({ setActiveTab }) {
         
         <div className="flex items-center gap-4 w-full md:w-auto">
           <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 w-4 h-4" />
             <input
               type="text"
               placeholder="Search quotes or products..."
@@ -198,7 +198,7 @@ export default function History({ setActiveTab }) {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-gray-50 border-y border-gray-200 text-sm text-gray-500 uppercase tracking-wider">
+            <tr className="bg-gray-50 border-y border-gray-200 text-sm text-gray-700 uppercase tracking-wider">
               <th className="py-3 px-4 font-medium">Date & ID</th>
               <th className="py-3 px-4 font-medium">Customer</th>
               <th className="py-3 px-4 font-medium">Type / Status</th>
@@ -209,22 +209,22 @@ export default function History({ setActiveTab }) {
           <tbody className="divide-y divide-gray-200 text-sm">
             {loading ? (
               <tr>
-                <td colSpan="5" className="py-8 text-center text-gray-500">Loading history...</td>
+                <td colSpan="5" className="py-8 text-center text-gray-700">Loading history...</td>
               </tr>
             ) : filteredQuotes.length === 0 ? (
               <tr>
-                <td colSpan="5" className="py-8 text-center text-gray-500">No quotations found in {showTrash ? 'Trash' : 'History'}.</td>
+                <td colSpan="5" className="py-8 text-center text-gray-700">No quotations found in {showTrash ? 'Trash' : 'History'}.</td>
               </tr>
             ) : (
               filteredQuotes.map(quote => (
                 <tr key={quote.id} className="hover:bg-gray-50 transition-colors group">
                   <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
                     <div>{new Date(quote.updated_at || quote.created_at).toLocaleDateString()}</div>
-                    <div className="text-xs font-mono text-gray-400">ID: {quote.id}</div>
+                    <div className="text-xs font-mono text-gray-600">ID: {quote.id}</div>
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-medium text-gray-900">{quote.customer_name}</div>
-                    <div className="text-xs text-gray-500">{quote.phone_number} {quote.project_name && `• ${quote.project_name}`}</div>
+                    <div className="text-xs text-gray-700">{quote.phone_number} {quote.project_name && `• ${quote.project_name}`}</div>
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-medium text-gray-700 text-xs bg-gray-100 inline-block px-2 py-1 rounded mb-1">{quote.quote_type || 'Image Quote'}</div>

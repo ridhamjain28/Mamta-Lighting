@@ -5,7 +5,6 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon, Tag, Bookmark } from 'lucide-react';
 
 export default function ProductManagement() {
-  const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,7 +15,6 @@ export default function ProductManagement() {
     name: '',
     model_number: '',
     brand_id: '',
-    category_id: '',
     base_price: '',
     description: '',
     variants: [],
@@ -25,9 +23,7 @@ export default function ProductManagement() {
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
 
-  const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
   const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
-  const [newCategory, setNewCategory] = useState('');
   const [newBrand, setNewBrand] = useState('');
   const { addToast } = useToastStore();
 
@@ -37,26 +33,15 @@ export default function ProductManagement() {
   }, [systemMode]);
 
   async function fetchMetadata() {
-    const { data: catData } = await supabase.from('categories').select('*');
     const { data: brandData } = await supabase.from('brands').select('*');
-    if (catData) {
-      setCategories(catData.sort((a,b)=>a.name.localeCompare(b.name)));
-    }
     if (brandData) setBrands(brandData.sort((a,b)=>a.name.localeCompare(b.name)));
   }
 
   async function fetchProducts() {
     let query = supabase.from('products').select(`
       *,
-      brands ( name ),
-      categories ( name )
-    `);
-    
-    if (systemMode === 'Manual Quote') {
-      query = query.eq('product_type', 'Manual Product');
-    } else {
-      query = query.or('product_type.eq.Image Product,product_type.is.null');
-    }
+      brands ( name )
+    `).or('product_type.eq.Image Product,product_type.is.null');
     
     const { data } = await query.order('created_at', { ascending: false });
     if (data) setProducts(data);
@@ -74,7 +59,6 @@ export default function ProductManagement() {
       name: prod.name || '',
       model_number: prod.model_number || '',
       brand_id: prod.brand_id || '',
-      category_id: prod.category_id || '',
       base_price: prod.base_price || '',
       description: prod.description || '',
       variants: prod.variants || [],
@@ -106,25 +90,6 @@ export default function ProductManagement() {
   };
 
   // Metadata CRUD
-  const handleAddCategory = async () => {
-    if (!newCategory.trim()) return;
-    const { data, error } = await supabase.from('categories').insert([{ name: newCategory.trim() }]).select();
-    if (!error && data) { setCategories([...categories, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); setNewCategory(''); }
-  };
-  const handleDeleteCategory = async (id) => {
-    const { error } = await supabase.from('categories').delete().eq('id', id);
-    if (!error) { setCategories(categories.filter(c => c.id !== id)); fetchProducts(); }
-  };
-  const handleUpdateCategory = async (id) => {
-    if (!editingCategory.name.trim()) return;
-    const { error } = await supabase.from('categories').update({ name: editingCategory.name.trim() }).eq('id', id);
-    if (!error) { 
-       setCategories(categories.map(c => c.id === id ? { ...c, name: editingCategory.name.trim() } : c).sort((a,b)=>a.name.localeCompare(b.name))); 
-       fetchProducts();
-    }
-    setEditingCategory({ id: null, name: '' });
-  };
-
   const handleAddBrand = async () => {
     if (!newBrand.trim()) return;
     const { data, error } = await supabase.from('brands').insert([{ name: newBrand.trim() }]).select();
@@ -172,7 +137,6 @@ export default function ProductManagement() {
         name: formData.name,
         model_number: formData.model_number,
         brand_id: formData.brand_id ? parseInt(formData.brand_id) : null,
-        category_id: formData.category_id ? parseInt(formData.category_id) : null,
         base_price: parseFloat(formData.base_price) || 0,
         description: formData.description,
         variants: formData.variants,
@@ -211,30 +175,6 @@ export default function ProductManagement() {
       <>
           {/* Metadata Management Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Categories */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Tag className="w-5 h-5 text-blue-600"/> Manage Categories</h3>
-              <div className="flex gap-2 mb-4">
-                <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Category..." value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
-                <button onClick={handleAddCategory} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition-colors font-medium">Add</button>
-              </div>
-              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                {categories.map(c => (
-                  <div key={c.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors group">
-                    {editingCategory.id === c.id ? (
-                      <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingCategory.name} onChange={e => setEditingCategory({...editingCategory, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateCategory(c.id)} onBlur={() => handleUpdateCategory(c.id)} />
-                    ) : (
-                      <span className="text-sm text-gray-700 font-medium px-1">{c.name}</span>
-                    )}
-                    <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setEditingCategory({id: c.id, name: c.name})} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
-                      <button onClick={() => handleDeleteCategory(c.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Brands */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Bookmark className="w-5 h-5 text-blue-600"/> Manage Brands</h3>
@@ -251,8 +191,8 @@ export default function ProductManagement() {
                       <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
                     )}
                     <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setEditingBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
-                      <button onClick={() => handleDeleteBrand(b.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={() => setEditingBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                      <button onClick={() => handleDeleteBrand(b.id)} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
                 ))}
@@ -270,7 +210,7 @@ export default function ProductManagement() {
                 </h2>
               </div>
               {editingId && (
-                <button onClick={cancelEdit} className="text-gray-500 hover:text-gray-700 flex items-center gap-1 text-sm font-medium">
+                <button onClick={cancelEdit} className="text-gray-700 hover:text-gray-700 flex items-center gap-1 text-sm font-medium">
                   <X className="w-4 h-4" /> Cancel Edit
                 </button>
               )}
@@ -290,13 +230,6 @@ export default function ProductManagement() {
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select className="input-field" value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})}>
-                    <option value="">Select Category</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
                   <select className="input-field" value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})}>
                     <option value="">Select Brand</option>
@@ -315,7 +248,7 @@ export default function ProductManagement() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {editingId ? 'Update Image (Optional)' : 'Product Image *'}
                     </label>
-                    <input required={!editingId} type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                    <input required={!editingId} type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
                   </div>
                 )}
                 
@@ -324,7 +257,7 @@ export default function ProductManagement() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="font-bold text-gray-800">Product Variations</h3>
-                      <p className="text-xs text-gray-500">Add variations like wattages (7W, 12W) and their custom prices.</p>
+                      <p className="text-xs text-gray-700">Add variations like wattages (7W, 12W) and their custom prices.</p>
                     </div>
                     <button 
                       type="button" 
@@ -353,7 +286,7 @@ export default function ProductManagement() {
                             />
                           </div>
                           <div className="flex-1 relative">
-                            <span className="absolute left-3 top-2.5 text-gray-500 font-medium">₹</span>
+                            <span className="absolute left-3 top-2.5 text-gray-700 font-medium">₹</span>
                             <input 
                               type="number" 
                               placeholder="Custom Price" 
@@ -381,7 +314,7 @@ export default function ProductManagement() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500 italic text-center py-4 bg-white rounded border border-dashed border-gray-300">
+                    <div className="text-sm text-gray-700 italic text-center py-4 bg-white rounded border border-dashed border-gray-300">
                       No variations added. The product will use the Base Price.
                     </div>
                   )}
@@ -407,10 +340,10 @@ export default function ProductManagement() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 border-y border-gray-200 text-sm text-gray-500 uppercase tracking-wider">
+                  <tr className="bg-gray-50 border-y border-gray-200 text-sm text-gray-700 uppercase tracking-wider">
                     {systemMode !== 'Manual Quote' && <th className="py-3 px-4 font-medium w-16">Image</th>}
                     <th className="py-3 px-4 font-medium">Product Details</th>
-                    <th className="py-3 px-4 font-medium">Category / Brand</th>
+                    <th className="py-3 px-4 font-medium">Brand</th>
                     <th className="py-3 px-4 font-medium">Base Price</th>
                     <th className="py-3 px-4 font-medium text-center">Actions</th>
                   </tr>
@@ -418,7 +351,7 @@ export default function ProductManagement() {
                 <tbody className="divide-y divide-gray-200 text-sm">
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan={systemMode !== 'Manual Quote' ? "5" : "4"} className="py-8 text-center text-gray-500">No products found. Add one above!</td>
+                      <td colSpan={systemMode !== 'Manual Quote' ? "5" : "4"} className="py-8 text-center text-gray-700">No products found. Add one above!</td>
                     </tr>
                   ) : (
                     products.map(product => (
@@ -428,7 +361,7 @@ export default function ProductManagement() {
                             {product.primary_image_url ? (
                               <img src={product.primary_image_url} alt={product.name} className="w-12 h-12 object-contain rounded bg-white border border-gray-200" />
                             ) : (
-                              <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-400">
+                              <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">
                                 <ImageIcon className="w-5 h-5" />
                               </div>
                             )}
@@ -436,11 +369,10 @@ export default function ProductManagement() {
                         )}
                         <td className="py-3 px-4">
                           <div className="font-semibold text-gray-900">{product.name}</div>
-                          <div className="text-xs text-gray-500">Model: {product.model_number || 'N/A'}</div>
+                          <div className="text-xs text-gray-700">Model: {product.model_number || 'N/A'}</div>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="text-gray-700">{product.categories?.name || '-'}</div>
-                          <div className="text-xs text-gray-500">{product.brands?.name || '-'}</div>
+                          <div className="text-xs text-gray-700">{product.brands?.name || '-'}</div>
                         </td>
                         <td className="py-3 px-4 font-medium text-gray-900">
                           ₹{product.base_price.toLocaleString(undefined, {minimumFractionDigits: 2})}

@@ -46,8 +46,7 @@ export default function Catalog() {
         .from('products')
         .select(`
           *,
-          brands (name),
-          categories (name)
+          brands (name)
         `)
         .or('product_type.eq.Image Product,product_type.is.null');
       
@@ -74,7 +73,7 @@ export default function Catalog() {
       {/* Search Header */}
       <div className="p-6 border-b border-gray-200 bg-white">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 w-5 h-5" />
           <input
             type="text"
             placeholder="Search products by name or model..."
@@ -98,7 +97,7 @@ export default function Catalog() {
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-gray-500">
+          <div className="h-full flex items-center justify-center text-gray-700">
             No products found.
           </div>
         ) : (
@@ -113,19 +112,16 @@ export default function Catalog() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <div className="w-full h-full flex items-center justify-center text-gray-600">
                       No Image
                     </div>
                   )}
-                  <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-xs font-medium text-gray-700 shadow-sm">
-                    {product.categories?.name || 'Uncategorized'}
-                  </div>
                 </div>
                 <div className="p-4 flex-1 flex flex-col">
-                  <div className="text-sm text-gray-500 mb-1">{product.brands?.name || 'No Brand'}</div>
+                  <div className="text-sm text-gray-700 mb-1">{product.brands?.name || 'No Brand'}</div>
                   <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
                   {product.model_number && (
-                    <p className="text-xs text-gray-500 mb-2">Model: {product.model_number}</p>
+                    <p className="text-xs text-gray-700 mb-2">Model: {product.model_number}</p>
                   )}
                   <div className="mt-auto pt-4 flex items-center justify-between">
                     <span className="font-bold text-blue-600">₹{product.base_price.toLocaleString()}</span>
@@ -150,7 +146,7 @@ export default function Catalog() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <h3 className="font-bold text-gray-900">Select Variation</h3>
-              <button onClick={() => setShowVariantModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
+              <button onClick={() => setShowVariantModal(false)} className="text-gray-600 hover:text-gray-600"><X className="w-5 h-5"/></button>
             </div>
             <div className="p-6">
               <p className="text-sm text-gray-600 mb-4">Please select an option for <strong>{selectedProductForVariant.name}</strong>:</p>

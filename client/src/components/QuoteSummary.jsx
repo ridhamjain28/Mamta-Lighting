@@ -45,7 +45,6 @@ export default function QuoteSummary() {
       customer_name: customer.name,
       phone_number: customer.phone,
       project_name: customer.project,
-      items: activeItems,
       subtotal,
       tax_amount: gst_amount,
       total_discount: discount_amount,
@@ -62,7 +61,6 @@ export default function QuoteSummary() {
     try {
       let savedQuote;
       if (quoteId) {
-        // Update existing
         const { data, error } = await supabase
           .from('quotations')
           .update(payload)
@@ -71,8 +69,10 @@ export default function QuoteSummary() {
           .single();
         if (error) throw error;
         savedQuote = data;
+        
+        // Delete existing items
+        await supabase.from('quotation_items').delete().eq('quotation_id', savedQuote.id);
       } else {
-        // Insert new
         const { data, error } = await supabase
           .from('quotations')
           .insert([payload])
@@ -80,6 +80,31 @@ export default function QuoteSummary() {
           .single();
         if (error) throw error;
         savedQuote = data;
+      }
+      
+      // Insert items
+      if (activeItems.length > 0) {
+        const itemsPayload = activeItems.map(item => {
+          const itemPrice = item.custom_price_override ?? item.base_price;
+          const itemDisc = (item.discount_override !== '' && item.discount_override !== null) 
+              ? Number(item.discount_override) 
+              : (Number(globalDiscount) || 0);
+          const finalPrice = itemPrice - (itemPrice * itemDisc / 100);
+          
+          return {
+            quotation_id: savedQuote.id,
+            product_id: item.id,
+            quantity: Number(item.quantity),
+            base_price: item.base_price,
+            discount_override: item.discount_override !== '' ? Number(item.discount_override) : null,
+            custom_price_override: item.custom_price_override !== null ? Number(item.custom_price_override) : null,
+            final_unit_price: finalPrice,
+            line_total: finalPrice * Number(item.quantity)
+          };
+        });
+        
+        const { error: itemsError } = await supabase.from('quotation_items').insert(itemsPayload);
+        if (itemsError) throw itemsError;
       }
       
       setQuoteMetadata({ quoteId: savedQuote.id, status: savedQuote.status });
@@ -190,7 +215,7 @@ export default function QuoteSummary() {
       <div className="h-full flex flex-col items-center justify-center p-6 bg-white text-center rounded-b-xl">
         <CheckCircle2 className="w-20 h-20 text-green-500 mb-6" />
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Quotation Generated!</h2>
-        <p className="text-gray-500 mb-8">The PDF has been successfully saved to the cloud.</p>
+        <p className="text-gray-700 mb-8">The PDF has been successfully saved to the cloud.</p>
         
         <div className="space-y-4 w-full max-w-sm">
           <button 
@@ -274,12 +299,12 @@ export default function QuoteSummary() {
       {/* Sticky Footer: Totals & Actions */}
       <div className="p-6 border-t border-gray-200 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
         <div className="space-y-1 mb-4">
-          <div className="flex justify-between text-gray-500 text-sm">
+          <div className="flex justify-between text-gray-700 text-sm">
             <span>Subtotal (After Discounts)</span>
             <span>₹{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
           </div>
           {gstIncluded && (
-            <div className="flex justify-between text-gray-500 text-sm">
+            <div className="flex justify-between text-gray-700 text-sm">
               <span>GST (18%)</span>
               <span>₹{gst_amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
             </div>
@@ -295,7 +320,7 @@ export default function QuoteSummary() {
           <button 
             onClick={handleManualSave}
             disabled={isSaving || isGenerating || items.length === 0}
-            className="flex-1 bg-white border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 text-gray-700 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="flex-1 bg-white border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-600 text-gray-700 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             Save
