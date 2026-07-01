@@ -1,23 +1,58 @@
 import { create } from 'zustand';
 
-export const useQuoteStore = create((set, get) => ({
-  // Customer Details
+const defaultState = {
   customer: { name: '', phone: '', project: '' },
-  
-  // The Shopping Cart
   items: [],
-  
-  // Quotation Metadata
   quoteId: null,
-  quoteType: null,
   status: 'Draft',
-
-  // Settings
   globalDiscount: 0,
-  gstIncluded: false, // if false, GST is added on top. if true, prices already include GST, but we'll still show the breakdown. Wait, standard is "GST Extra". Let's treat gstIncluded as "GST Added to total".
+  gstIncluded: false, // if false, GST is added on top. if true, prices already include GST, but we'll still show the breakdown.
   hideListPrice: false,
+};
 
-  // Actions
+export const useQuoteStore = create((set, get) => ({
+  // --- SYSTEM SEPARATION ---
+  systemMode: null, // 'Image Quote' or 'Manual Quote'
+  quoteType: null, // Keeps compatibility with old quoteType references
+
+  // --- ACTIVE STATE (Spread at root so components don't need to change) ---
+  ...defaultState,
+
+  // --- BACKGROUND CACHES ---
+  imageCache: { ...defaultState },
+  manualCache: { ...defaultState },
+
+  setSystemMode: (mode) => set((state) => {
+    if (state.systemMode === mode) return {};
+    
+    // Save current active state to the cache BEFORE switching
+    const currentSnapshot = {
+      customer: state.customer,
+      items: state.items,
+      quoteId: state.quoteId,
+      status: state.status,
+      globalDiscount: state.globalDiscount,
+      gstIncluded: state.gstIncluded,
+      hideListPrice: state.hideListPrice,
+    };
+
+    const updates = { 
+      systemMode: mode,
+      quoteType: mode
+    };
+
+    if (state.systemMode === 'Image Quote') updates.imageCache = currentSnapshot;
+    if (state.systemMode === 'Manual Quote') updates.manualCache = currentSnapshot;
+
+    // Load state from the target cache
+    const targetCache = mode === 'Image Quote' ? (updates.imageCache || state.imageCache) : (updates.manualCache || state.manualCache);
+    
+    return { ...updates, ...targetCache };
+  }),
+
+  setQuoteMetadata: (metadata) => set((state) => ({ ...state, ...metadata })),
+
+  // --- ACTIONS ---
   setCustomer: (field, value) => set((state) => ({
     customer: { ...state.customer, [field]: value }
   })),
@@ -26,8 +61,6 @@ export const useQuoteStore = create((set, get) => ({
   
   toggleGst: (included) => set({ gstIncluded: included }),
   toggleHideListPrice: (hide) => set({ hideListPrice: hide }),
-
-  setQuoteMetadata: (metadata) => set((state) => ({ ...state, ...metadata })),
 
   addItem: (product) => set((state) => {
     // Treat different wattages of the same product as different cart items
@@ -73,22 +106,15 @@ export const useQuoteStore = create((set, get) => ({
     items: state.items.filter(item => (item.cartItemId || item.id) !== cartItemId)
   })),
 
-  clearCart: () => set({ 
-    items: [], 
-    customer: { name: '', phone: '', project: '' }, 
-    globalDiscount: 0, 
-    gstIncluded: false,
-    hideListPrice: false,
-    quoteId: null,
-    quoteType: null,
-    status: 'Draft'
-  }),
+  clearCart: () => set((state) => ({ 
+    ...defaultState,
+    quoteType: state.systemMode // Retain the quote type to match system mode
+  })),
 
   // Derived Calculations
   getTotals: () => {
     const { items, globalDiscount, gstIncluded } = get();
     
-    // Subtotal calculates the sum after applying individual item percentage discounts
     const subtotal = items.reduce((acc, item) => {
       const price = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
       const effectiveDiscount = (item.discount_override !== '' && item.discount_override !== null) 
@@ -98,10 +124,7 @@ export const useQuoteStore = create((set, get) => ({
       return acc + (finalPrice * item.quantity);
     }, 0);
 
-    // The discount is now applied inline to each product, so no global subtraction is needed
     const afterDiscount = subtotal;
-    
-    // Default GST is 18%.
     const gstAmount = gstIncluded ? afterDiscount * 0.18 : 0;
     const grandTotal = Math.round(afterDiscount + gstAmount);
 

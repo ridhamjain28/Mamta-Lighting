@@ -18,10 +18,12 @@ export default function History({ setActiveTab }) {
   async function fetchQuotes() {
     setLoading(true);
     try {
+      const systemMode = useQuoteStore.getState().systemMode;
       const { data, error } = await supabase
         .from('quotations')
         .select('*')
         .eq('is_deleted', showTrash)
+        .eq('quote_type', systemMode || 'Image Quote')
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -87,37 +89,43 @@ export default function History({ setActiveTab }) {
   };
 
   const handleEdit = (quote) => {
-    useQuoteStore.setState({
+    const { setCustomer, setQuoteMetadata } = useQuoteStore.getState();
+    
+    setQuoteMetadata({
       quoteId: quote.id,
       quoteType: quote.quote_type || 'Image Quote',
       status: quote.status || 'Draft',
-      customer: {
-        name: quote.customer_name || '',
-        phone: quote.phone_number || '',
-        project: quote.project_name || ''
-      },
       items: quote.items || [],
-      globalDiscount: 0, // Discount is baked into items array as discount_override for edit simplicity or retrieved if we stored it globally
-      gstIncluded: false, // Wait, we didn't explicitly store globalDiscount in DB, but the totals are there. The user will see individual line item discounts.
-      hideListPrice: false
+      globalDiscount: 0,
+      gstIncluded: quote.gst_included || false,
+      hideListPrice: quote.hide_list_price || false,
     });
-    // We should ideally store globalDiscount, gstIncluded, hideListPrice in the DB.
-    // For now, they will reset, but line items keep their prices.
+    
+    setCustomer('name', quote.customer_name || '');
+    setCustomer('phone', quote.phone_number || '');
+    setCustomer('project', quote.project_name || '');
+
     setActiveTab('new-quote');
   };
 
   const handleDuplicate = (quote) => {
-    useQuoteStore.setState({
-      quoteId: null,
+    const { setCustomer, setQuoteMetadata } = useQuoteStore.getState();
+    
+    setQuoteMetadata({
+      quoteId: null, // New Quote
       quoteType: quote.quote_type || 'Image Quote',
       status: 'Draft',
-      customer: {
-        name: '',
-        phone: '',
-        project: ''
-      },
-      items: quote.items || []
+      items: quote.items || [],
+      globalDiscount: 0,
+      gstIncluded: quote.gst_included || false,
+      hideListPrice: quote.hide_list_price || false,
     });
+    
+    setCustomer('name', quote.customer_name || '');
+    setCustomer('phone', quote.phone_number || '');
+    setCustomer('project', quote.project_name || '');
+
+    addToast("Quotation duplicated. You are now editing a new draft.", "success");
     setActiveTab('new-quote');
   };
 
