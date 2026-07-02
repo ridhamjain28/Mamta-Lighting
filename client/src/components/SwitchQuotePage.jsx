@@ -42,26 +42,15 @@ export default function SwitchQuotePage() {
     } else {
       setAllProducts(data || []);
       
-      // We map overrides by Product Name instead of ID since ID changes per brand/color
-      // but in the store, we save the specific variant ID if it exists
-      const overrides = {};
-      (data || []).forEach(p => {
-        const existingItem = items.find(it => it.id === p.id);
-        if (existingItem) {
-          overrides[p.name] = {
-            qty: existingItem.quantity,
-            manualPrice: existingItem.custom_price_override ?? p.base_price,
-            disc: existingItem.discount_override !== '' && existingItem.discount_override != null
-              ? existingItem.discount_override
-              : '',
-          };
-          // Initialize selection based on the first item found
-          if (!selectedBrandId) setSelectedBrandId(p.brand_id?.toString() || '');
-          if (!selectedSubBrand) setSelectedSubBrand(p.sub_brand || '');
-          if (!selectedColor) setSelectedColor(p.color || '');
-        }
-      });
-      setLocalOverrides(overrides);
+      // Initialize selection based on the first item found (or a product currently in the cart)
+      const cartProduct = data?.find(p => items.some(it => (it.cartItemId || it.id) === p.id));
+      const initProduct = cartProduct || (data && data[0]);
+      
+      if (initProduct) {
+        if (!selectedBrandId) setSelectedBrandId(initProduct.brand_id?.toString() || '');
+        if (!selectedSubBrand) setSelectedSubBrand(initProduct.sub_brand || '');
+        if (!selectedColor) setSelectedColor(initProduct.color || '');
+      }
     }
     setLoading(false);
   }
@@ -110,15 +99,16 @@ export default function SwitchQuotePage() {
     }
   }, [selectedBrandId, selectedSubBrand, colors]);
 
-  // All unique product names
-  const uniqueNames = useMemo(() => {
-    const names = new Set(allProducts.map(p => p.name));
+  const visibleProducts = useMemo(() => {
+    if (!selectedBrandId) return [];
+    const filtered = allProducts.filter(p => 
+      p.brand_id?.toString() === selectedBrandId &&
+      (p.sub_brand || '') === (selectedSubBrand || '') &&
+      (p.color || '') === (selectedColor || '')
+    );
     
-    // Sort logic
     const getRank = (name) => {
       const n = name.trim().toLowerCase();
-      
-      // Exact matches from user's preferred list (highest priority)
       const exactList = [
         "switch 6a one-way - 1 module",
         "switch 6a two-way - 1 module",
@@ -134,11 +124,8 @@ export default function SwitchQuotePage() {
         "1m", "2m", "3m", "4m", "6m", "8m(h)", "8m(s)", "12m", "14m", "16m", "21m",
         "ac starter"
       ];
-      
       const exactIndex = exactList.indexOf(n);
       if (exactIndex !== -1) return exactIndex;
-      
-      // Secondary sorting for all other standardized products not explicitly in the user's list
       if (n.startsWith('switch 6a')) return 1.5;
       if (n.startsWith('switch 16a')) return 2.5;
       if (n.startsWith('switch 20a') || n.startsWith('switch 25a') || n.startsWith('switch 32a')) return 3.5;
@@ -151,134 +138,64 @@ export default function SwitchQuotePage() {
       if (n.includes('buzzer')) return 10.3;
       if (n.startsWith('blank')) return 11.5;
       if (n.includes('mcb')) return 99;
-      if (n.match(/^\\d+m/)) {
-        // Plates that aren't in the exact list (e.g. 9M, 18M)
-        const match = n.match(/^(\\d+)m/);
+      if (n.match(/^\d+m/)) {
+        const match = n.match(/^(\d+)m/);
         return 12 + (match ? parseInt(match[1]) / 100 : 0);
       }
-      
-      return 100; // Unranked fallback
+      return 100;
     };
 
-    return Array.from(names).sort((a, b) => {
-      const rankA = getRank(a);
-      const rankB = getRank(b);
+    return filtered.sort((a, b) => {
+      const rankA = getRank(a.name);
+      const rankB = getRank(b.name);
       if (rankA !== rankB) return rankA - rankB;
-      return a.localeCompare(b); // Alphabetical if ranks are same
+      return a.name.localeCompare(b.name);
     });
-  }, [allProducts]);
-
-  // Find the specific product variant for a name given current dropdowns
-  const getCurrentVariant = useCallback((name) => {
-    if (!selectedBrandId) return null;
-    return allProducts.find(p => 
-      p.name === name &&
-      p.brand_id?.toString() === selectedBrandId &&
-      (p.sub_brand || '') === (selectedSubBrand || '') &&
-      (p.color || '') === (selectedColor || '')
-    ) || null;
   }, [allProducts, selectedBrandId, selectedSubBrand, selectedColor]);
 
-  // Sync to store handles finding the old variant and removing it, and adding the new one
-  const syncToStore = useCallback((name, qty, manualPrice, disc) => {
-    const variant = getCurrentVariant(name);
-    
-    // First, remove any existing variants of this product name from the store to avoid duplicates
-    // e.g. if they had Havells 1 Way Switch and now we are on Norisys
-    const allVariantsOfName = allProducts.filter(p => p.name === name);
-    allVariantsOfName.forEach(v => {
-      const existing = items.find(it => (it.cartItemId || it.id) === v.id);
-      // Remove it if it's not the currently active variant, or if qty is 0
-      if (existing && (!variant || existing.id !== variant.id || qty === 0)) {
-        removeItem(existing.cartItemId || existing.id);
-      }
-    });
+  const handleItemChange = (product, field, value) => {
+    const existingItem = items.find(it => (it.cartItemId || it.id) === product.id);
+    const currentQty = existingItem ? existingItem.quantity : 0;
+    const currentPrice = existingItem ? (existingItem.custom_price_override ?? product.base_price) : product.base_price;
+    const currentDisc = existingItem ? (existingItem.discount_override ?? '') : '';
 
-    if (qty > 0 && variant) {
-      const existingItem = items.find(it => (it.cartItemId || it.id) === variant.id);
+    let newQty = currentQty;
+    let newPrice = currentPrice;
+    let newDisc = currentDisc;
+
+    if (field === 'qty') {
+      newQty = Math.max(0, parseInt(value, 10) || 0);
+    } else if (field === 'price') {
+      newPrice = value === '' ? null : parseFloat(value);
+    } else if (field === 'disc') {
+      newDisc = value;
+    }
+
+    if (newQty > 0) {
       if (!existingItem) {
         addItem({
-          ...variant,
-          quantity: qty,
-          custom_price_override: manualPrice ?? variant.base_price,
-          discount_override: disc !== '' ? disc : '',
+          ...product,
+          quantity: newQty,
+          custom_price_override: newPrice,
+          discount_override: newDisc,
         });
         setTimeout(() => {
-          const fresh = useQuoteStore.getState().items.find(it => it.id === variant.id);
+          const fresh = useQuoteStore.getState().items.find(it => it.id === product.id);
           if (fresh) {
-            if (qty !== 1) updateItemQuantity(fresh.cartItemId, qty);
-            updateItemPrice(fresh.cartItemId, manualPrice ?? variant.base_price);
-            if (disc !== '') updateItemDiscount(fresh.cartItemId, disc);
+            if (newQty !== 1) updateItemQuantity(fresh.cartItemId, newQty);
+            updateItemPrice(fresh.cartItemId, newPrice);
+            if (newDisc !== '') updateItemDiscount(fresh.cartItemId, newDisc);
           }
         }, 0);
       } else {
-        updateItemQuantity(existingItem.cartItemId, qty);
-        updateItemPrice(existingItem.cartItemId, manualPrice ?? variant.base_price);
-        updateItemDiscount(existingItem.cartItemId, disc !== '' ? disc : '');
+        updateItemQuantity(existingItem.cartItemId, newQty);
+        updateItemPrice(existingItem.cartItemId, newPrice);
+        updateItemDiscount(existingItem.cartItemId, newDisc);
       }
+    } else if (newQty === 0 && existingItem) {
+      removeItem(existingItem.cartItemId || existingItem.id);
     }
-  }, [allProducts, items, getCurrentVariant, addItem, removeItem, updateItemQuantity, updateItemPrice, updateItemDiscount]);
-
-  // Effect to re-sync all active products when dropdown changes!
-  useEffect(() => {
-    // Only re-sync if we have a valid selection
-    if (selectedBrandId) {
-      Object.keys(localOverrides).forEach(name => {
-        const ov = localOverrides[name];
-        if (ov.qty > 0) {
-          // It will update the store to use the new variant for this name (if it exists)
-          // If it doesn't exist, the store item gets removed but the qty stays in localOverrides
-          syncToStore(name, ov.qty, ov.manualPrice, ov.disc);
-        }
-      });
-    }
-  }, [selectedBrandId, selectedSubBrand, selectedColor]);
-
-  const getOverride = (name) => localOverrides[name] || { qty: 0, manualPrice: null, disc: '' };
-
-  const handleQtyChange = (name, value) => {
-    const qty = Math.max(0, parseInt(value, 10) || 0);
-    const ov = getOverride(name);
-    setLocalOverrides(prev => ({ ...prev, [name]: { ...ov, qty } }));
-    syncToStore(name, qty, ov.manualPrice, ov.disc);
   };
-
-  const handlePriceChange = (name, value) => {
-    const manualPrice = value === '' ? null : parseFloat(value);
-    const ov = getOverride(name);
-    setLocalOverrides(prev => ({ ...prev, [name]: { ...ov, manualPrice } }));
-    if (ov.qty > 0) syncToStore(name, ov.qty, manualPrice, ov.disc);
-  };
-
-  const handleDiscChange = (name, value) => {
-    const disc = value === '' ? '' : Math.min(100, Math.max(0, parseFloat(value) || 0));
-    const ov = getOverride(name);
-    setLocalOverrides(prev => ({ ...prev, [name]: { ...ov, disc } }));
-    if (ov.qty > 0) syncToStore(name, ov.qty, ov.manualPrice, disc);
-  };
-
-  const rowTotal = (name, variant) => {
-    const ov = getOverride(name);
-    const qty = ov.qty || 0;
-    if (!variant || qty === 0) return 0;
-    
-    let price = ov.manualPrice;
-    if (price === null || price === undefined || price === '' || Number(price) === 0) {
-      price = variant.base_price ?? 0;
-    } else {
-      price = Number(price);
-    }
-    
-    const disc = ov.disc !== '' ? parseFloat(ov.disc) || 0 : (Number(globalDiscount) || 0);
-    return (price - price * disc / 100) * qty;
-  };
-
-  // Sort names: alphabetical
-  const sortedNames = useMemo(() => {
-    return [...uniqueNames].sort((a, b) => {
-      return a.localeCompare(b);
-    });
-  }, [uniqueNames]);
 
   if (loading) return <div className="flex justify-center items-center h-96"><Loader2 className="w-8 h-8 animate-spin text-purple-500" /></div>;
 
@@ -293,7 +210,6 @@ export default function SwitchQuotePage() {
         </div>
       </div>
 
-      {/* Brand Selector Bar */}
       <div className="bg-purple-50 border-b border-purple-100 px-5 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div>
@@ -340,71 +256,73 @@ export default function SwitchQuotePage() {
                   <th className="text-right px-4 py-3 font-semibold w-28">Total</th>
                 </tr>
               </thead>
-              <tbody>
-                {sortedNames.map(name => {
-                  const variant = getCurrentVariant(name);
-                  const ov = getOverride(name);
-                  const qty = ov.qty || 0;
-                  const isActive = qty > 0;
-                  const manualPrice = ov.manualPrice ?? '';
-                  const total = rowTotal(name, variant);
-                  
-                  const isUnavailable = !variant;
+              <tbody className="bg-white divide-y divide-gray-200">
+                {visibleProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
+                      No products available for this selection.
+                    </td>
+                  </tr>
+                ) : (
+                  visibleProducts.map((product) => {
+                    const cartItem = items.find(it => (it.cartItemId || it.id) === product.id);
+                    const qty = cartItem ? cartItem.quantity : 0;
+                    const manualPrice = cartItem ? (cartItem.custom_price_override ?? product.base_price) : product.base_price;
+                    const disc = cartItem ? (cartItem.discount_override ?? '') : '';
+                    const active = qty > 0;
+                    
+                    const effectiveDisc = disc !== '' ? parseFloat(disc) : (globalDiscount || 0);
+                    const unitPrice = manualPrice - (manualPrice * (effectiveDisc / 100));
+                    const total = unitPrice * qty;
 
-                  return (
-                    <tr key={name} className={`border-b border-gray-100 transition-colors ${isActive && !isUnavailable ? 'bg-purple-50/50' : isUnavailable ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'}`}>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          {isActive && !isUnavailable && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                          <span className={`${isActive && !isUnavailable ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
-                            {name}
-                          </span>
-                          {isUnavailable && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">N/A</span>}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-600 tabular-nums">
-                        {variant ? variant.base_price.toFixed(2) : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <input
-                          type="number"
-                          min="0"
-                          value={qty === 0 ? '' : qty}
-                          onChange={(e) => handleQtyChange(name, e.target.value)}
-                          disabled={isUnavailable}
-                          className={`w-16 text-center text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-purple-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isActive && !isUnavailable ? 'border-purple-300 bg-white font-bold text-purple-700' : 'border-gray-200 bg-gray-50'}`}
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={manualPrice}
-                          onChange={(e) => handlePriceChange(name, e.target.value)}
-                          disabled={isUnavailable}
-                          className={`w-24 text-right text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-purple-400 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isActive && !isUnavailable ? 'border-purple-300 bg-white' : 'border-gray-200 bg-gray-50'}`}
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={ov.disc}
-                          onChange={(e) => handleDiscChange(name, e.target.value)}
-                          disabled={isUnavailable}
-                          placeholder="—"
-                          className={`w-16 text-center text-sm border rounded px-1 py-1 outline-none focus:ring-1 focus:ring-red-300 text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isActive && !isUnavailable ? 'border-purple-300 bg-white' : 'border-gray-200 bg-gray-50'}`}
-                        />
-                      </td>
-                      <td className={`px-4 py-2 text-right tabular-nums font-medium ${isActive && !isUnavailable ? 'text-gray-900 font-bold' : 'text-gray-300'}`}>
-                        {isActive && !isUnavailable ? `₹${total.toFixed(2)}` : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr key={product.id} className={`hover:bg-gray-50 transition-colors ${active ? 'bg-purple-50' : ''}`}>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                          {product.name}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-500 text-right font-mono">
+                          {product.base_price?.toFixed(2) || '—'}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={qty || ''}
+                            onChange={(e) => handleItemChange(product, 'qty', e.target.value)}
+                            className="w-16 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-center"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={manualPrice || ''}
+                            onChange={(e) => handleItemChange(product, 'price', e.target.value)}
+                            className="w-20 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-right"
+                            placeholder={product.base_price}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value={disc}
+                            onChange={(e) => handleItemChange(product, 'disc', e.target.value)}
+                            className="w-16 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-center"
+                            placeholder={globalDiscount ? `${globalDiscount}` : ''}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 text-right">
+                          {total > 0 ? `₹${total.toFixed(2)}` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
