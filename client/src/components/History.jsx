@@ -23,7 +23,7 @@ export default function History({ setActiveTab }) {
       const systemMode = useQuoteStore.getState().systemMode;
       const { data, error } = await supabase
         .from('quotations')
-        .select('*')
+        .select('*, quotation_items(*, products(*, brands(*)))')
         .eq('is_deleted', showTrash)
         .eq('quote_type', systemMode || 'Image Quote')
         .order('updated_at', { ascending: false });
@@ -88,6 +88,16 @@ export default function History({ setActiveTab }) {
     }
   };
 
+  const mapQuotationItems = (quote) => {
+    return (quote.quotation_items || []).map(qi => ({
+      ...qi.products,
+      cartItemId: qi.products.selected_wattage ? `${qi.products.id}-${qi.products.selected_wattage}` : qi.products.id,
+      quantity: qi.quantity,
+      discount_override: qi.discount_override,
+      custom_price_override: qi.custom_price_override
+    }));
+  };
+
   const handleEdit = (quote) => {
     const { setCustomer, setQuoteMetadata } = useQuoteStore.getState();
     
@@ -95,8 +105,8 @@ export default function History({ setActiveTab }) {
       quoteId: quote.id,
       quoteType: quote.quote_type || 'Image Quote',
       status: quote.status || 'Draft',
-      items: quote.items || [],
-      globalDiscount: 0,
+      items: mapQuotationItems(quote),
+      globalDiscount: quote.global_discount || 0,
       gstIncluded: quote.gst_included || false,
       hideListPrice: quote.hide_list_price || false,
     });
@@ -115,8 +125,8 @@ export default function History({ setActiveTab }) {
       quoteId: null, // New Quote
       quoteType: quote.quote_type || 'Image Quote',
       status: 'Draft',
-      items: quote.items || [],
-      globalDiscount: 0,
+      items: mapQuotationItems(quote),
+      globalDiscount: quote.global_discount || 0,
       gstIncluded: quote.gst_included || false,
       hideListPrice: quote.hide_list_price || false,
     });
@@ -228,9 +238,6 @@ export default function History({ setActiveTab }) {
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-medium text-gray-700 text-xs bg-gray-100 inline-block px-2 py-1 rounded mb-1">{quote.quote_type || 'Image Quote'}</div>
-                    <div className={`text-xs font-medium ${quote.status === 'Completed' ? 'text-green-600' : 'text-orange-500'}`}>
-                      {quote.status || 'Draft'}
-                    </div>
                   </td>
                   <td className="py-3 px-4 font-medium text-gray-900">
                     ₹{quote.grand_total ? parseFloat(quote.grand_total).toLocaleString(undefined, {minimumFractionDigits:2}) : '0.00'}

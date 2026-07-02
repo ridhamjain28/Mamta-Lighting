@@ -135,7 +135,11 @@ export default function SwitchQuotePage() {
     };
     
     const getPrice = () => {
-      if (updatedLocal.price !== undefined) return updatedLocal.price === '' ? null : parseFloat(updatedLocal.price) || 0;
+      if (updatedLocal.price !== undefined) {
+         if (updatedLocal.price === '') return null;
+         const p = parseFloat(updatedLocal.price);
+         return (isNaN(p) || p <= 0) ? null : p;
+      }
       return existingItem ? (existingItem.custom_price_override ?? product.base_price) : product.base_price;
     };
     
