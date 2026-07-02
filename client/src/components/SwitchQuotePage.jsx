@@ -116,6 +116,47 @@ export default function SwitchQuotePage() {
     });
   }, [allProducts, selectedBrandId, selectedSubBrand, selectedColor]);
 
+  // Auto-migrate quantities when the user changes variants (brand, sub-brand, or color)
+  useEffect(() => {
+    if (visibleProducts.length === 0) return;
+    
+    const store = useQuoteStore.getState();
+    const currentItems = store.items;
+    let hasChanges = false;
+    const newItems = [...currentItems];
+
+    for (let i = 0; i < newItems.length; i++) {
+      const item = newItems[i];
+      // Only migrate Switch Products
+      if (item.product_type !== 'Switch Product') continue;
+
+      const isCurrentVariant = 
+        item.brand_id?.toString() === selectedBrandId &&
+        (item.sub_brand || '') === (selectedSubBrand || '') &&
+        (item.color || '') === (selectedColor || '');
+
+      if (!isCurrentVariant) {
+        const matchingNewProduct = visibleProducts.find(p => p.name === item.name);
+        
+        if (matchingNewProduct) {
+          hasChanges = true;
+          newItems[i] = {
+            ...matchingNewProduct,
+            cartItemId: matchingNewProduct.id,
+            quantity: item.quantity,
+            custom_price_override: null, // Reset manual price to use new variant's base price
+            discount_override: item.discount_override,
+          };
+        }
+      }
+    }
+
+    if (hasChanges) {
+      useQuoteStore.setState({ items: newItems });
+      setLocalInputs({}); // Clear typing state so new base prices show up
+    }
+  }, [visibleProducts, selectedBrandId, selectedSubBrand, selectedColor]);
+
   const handleItemChange = (product, field, value) => {
     // 1. Update local string state to perfectly preserve what the user types
     const currentLocal = localInputs[product.id] || {};
