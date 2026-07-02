@@ -127,8 +127,8 @@ export default function SwitchQuotePage() {
 
     for (let i = 0; i < newItems.length; i++) {
       const item = newItems[i];
-      // Only migrate Switch Products
-      if (item.product_type !== 'Switch Product') continue;
+      // Only migrate Switch/Manual Products
+      if (item.product_type !== 'Switch Product' && item.product_type !== 'Manual Product') continue;
 
       const isCurrentVariant = 
         item.brand_id?.toString() === selectedBrandId &&
