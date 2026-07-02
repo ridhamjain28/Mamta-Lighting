@@ -24,8 +24,8 @@ export default function SwitchQuotePage() {
   const [selectedSubBrand, setSelectedSubBrand] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
 
-  // Local state map: productName -> { qty, manualPrice, disc }
-  const [localOverrides, setLocalOverrides] = useState({});
+  // Local state map to preserve exact strings while typing: productId -> { qty, price, disc }
+  const [localInputs, setLocalInputs] = useState({});
 
   useEffect(() => {
     fetchProducts();
@@ -117,22 +117,36 @@ export default function SwitchQuotePage() {
   }, [allProducts, selectedBrandId, selectedSubBrand, selectedColor]);
 
   const handleItemChange = (product, field, value) => {
+    // 1. Update local string state to perfectly preserve what the user types
+    const currentLocal = localInputs[product.id] || {};
+    const updatedLocal = { ...currentLocal, [field]: value };
+    
+    setLocalInputs(prev => ({
+      ...prev,
+      [product.id]: updatedLocal
+    }));
+
+    // 2. Parse the combined local state and update the store
     const existingItem = items.find(it => (it.cartItemId || it.id) === product.id);
-    const currentQty = existingItem ? existingItem.quantity : 0;
-    const currentPrice = existingItem ? (existingItem.custom_price_override ?? product.base_price) : product.base_price;
-    const currentDisc = existingItem ? (existingItem.discount_override ?? '') : '';
+    
+    const getQty = () => {
+      if (updatedLocal.qty !== undefined) return updatedLocal.qty === '' ? 0 : Math.max(0, parseInt(updatedLocal.qty, 10) || 0);
+      return existingItem ? existingItem.quantity : 0;
+    };
+    
+    const getPrice = () => {
+      if (updatedLocal.price !== undefined) return updatedLocal.price === '' ? null : parseFloat(updatedLocal.price) || 0;
+      return existingItem ? (existingItem.custom_price_override ?? product.base_price) : product.base_price;
+    };
+    
+    const getDisc = () => {
+      if (updatedLocal.disc !== undefined) return updatedLocal.disc;
+      return existingItem ? (existingItem.discount_override ?? '') : '';
+    };
 
-    let newQty = currentQty;
-    let newPrice = currentPrice;
-    let newDisc = currentDisc;
-
-    if (field === 'qty') {
-      newQty = Math.max(0, parseInt(value, 10) || 0);
-    } else if (field === 'price') {
-      newPrice = value === '' ? null : parseFloat(value);
-    } else if (field === 'disc') {
-      newDisc = value;
-    }
+    const newQty = getQty();
+    const newPrice = getPrice();
+    const newDisc = getDisc();
 
     if (newQty > 0) {
       if (!existingItem) {
@@ -228,62 +242,67 @@ export default function SwitchQuotePage() {
                   </tr>
                 ) : (
                   visibleProducts.map((product) => {
-                    const cartItem = items.find(it => (it.cartItemId || it.id) === product.id);
-                    const qty = cartItem ? cartItem.quantity : 0;
-                    const manualPrice = cartItem ? (cartItem.custom_price_override ?? product.base_price) : product.base_price;
-                    const disc = cartItem ? (cartItem.discount_override ?? '') : '';
-                    const active = qty > 0;
-                    
-                    const effectiveDisc = disc !== '' ? parseFloat(disc) : (globalDiscount || 0);
-                    const unitPrice = manualPrice - (manualPrice * (effectiveDisc / 100));
-                    const total = unitPrice * qty;
+                      const cartItem = items.find(it => (it.cartItemId || it.id) === product.id);
+                      const qty = cartItem ? cartItem.quantity : 0;
+                      const manualPrice = cartItem ? (cartItem.custom_price_override ?? product.base_price) : product.base_price;
+                      const disc = cartItem ? (cartItem.discount_override ?? '') : '';
+                      const active = qty > 0;
+                      
+                      const local = localInputs[product.id] || {};
+                      const displayQty = local.qty !== undefined ? local.qty : (qty || '');
+                      const displayPrice = local.price !== undefined ? local.price : (manualPrice || '');
+                      const displayDisc = local.disc !== undefined ? local.disc : disc;
+                      
+                      const effectiveDisc = disc !== '' ? parseFloat(disc) : (globalDiscount || 0);
+                      const unitPrice = manualPrice - (manualPrice * (effectiveDisc / 100));
+                      const total = unitPrice * qty;
 
-                    return (
-                      <tr key={product.id} className={`hover:bg-gray-50 transition-colors ${active ? 'bg-purple-50' : ''}`}>
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900">
-                          {product.name}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-500 text-right font-mono">
-                          {product.base_price?.toFixed(2) || '—'}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            value={qty || ''}
-                            onChange={(e) => handleItemChange(product, 'qty', e.target.value)}
-                            className="w-16 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-center"
-                            placeholder="0"
-                          />
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={manualPrice || ''}
-                            onChange={(e) => handleItemChange(product, 'price', e.target.value)}
-                            className="w-20 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-right"
-                            placeholder={product.base_price}
-                          />
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            value={disc}
-                            onChange={(e) => handleItemChange(product, 'disc', e.target.value)}
-                            className="w-16 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-center"
-                            placeholder={globalDiscount ? `${globalDiscount}` : ''}
-                          />
-                        </td>
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900 text-right">
-                          {total > 0 ? `₹${total.toFixed(2)}` : '—'}
-                        </td>
-                      </tr>
-                    );
+                      return (
+                        <tr key={product.id} className={`hover:bg-gray-50 transition-colors ${active ? 'bg-purple-50' : ''}`}>
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                            {product.name}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-500 text-right font-mono">
+                            {product.base_price?.toFixed(2) || '—'}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              value={displayQty}
+                              onChange={(e) => handleItemChange(product, 'qty', e.target.value)}
+                              className="w-16 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-center"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={displayPrice}
+                              onChange={(e) => handleItemChange(product, 'price', e.target.value)}
+                              className="w-20 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-right"
+                              placeholder={product.base_price}
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={displayDisc}
+                              onChange={(e) => handleItemChange(product, 'disc', e.target.value)}
+                              className="w-16 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-center"
+                              placeholder={globalDiscount ? `${globalDiscount}` : ''}
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900 text-right">
+                            {total > 0 ? `₹${total.toFixed(2)}` : '—'}
+                          </td>
+                        </tr>
+                      );
                   })
                 )}
               </tbody>
