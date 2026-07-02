@@ -84,7 +84,7 @@ export default function QuoteSummary() {
       if (activeItems.length > 0) {
         const itemsPayload = activeItems.map(item => {
           let itemPrice = item.custom_price_override;
-          if (itemPrice === null || itemPrice === undefined || itemPrice === '' || Number(itemPrice) === 0) {
+          if (itemPrice === null || itemPrice === undefined || itemPrice === '' || Number(itemPrice) <= 0) {
             itemPrice = item.base_price;
           } else {
             itemPrice = Number(itemPrice);

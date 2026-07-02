@@ -289,7 +289,10 @@ export default function SwitchQuotePage() {
                   visibleProducts.map((product) => {
                       const cartItem = items.find(it => (it.cartItemId || it.id) === product.id);
                       const qty = cartItem ? cartItem.quantity : 0;
-                      const manualPrice = cartItem ? (cartItem.custom_price_override ?? product.base_price) : product.base_price;
+                      
+                      const override = cartItem ? cartItem.custom_price_override : null;
+                      const manualPrice = (override !== null && override > 0) ? override : product.base_price;
+                      
                       const disc = cartItem ? (cartItem.discount_override ?? '') : '';
                       const active = qty > 0;
                       
@@ -327,6 +330,16 @@ export default function SwitchQuotePage() {
                               step="0.01"
                               value={displayPrice}
                               onChange={(e) => handleItemChange(product, 'price', e.target.value)}
+                              onBlur={() => {
+                                setLocalInputs(prev => {
+                                  const next = { ...prev };
+                                  if (next[product.id]) {
+                                    delete next[product.id].price;
+                                    if (Object.keys(next[product.id]).length === 0) delete next[product.id];
+                                  }
+                                  return next;
+                                });
+                              }}
                               className="w-20 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 outline-none text-right"
                               placeholder={product.base_price}
                             />
