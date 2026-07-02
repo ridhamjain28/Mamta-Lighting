@@ -455,7 +455,19 @@ export default function SwitchProductManagement() {
           ) : (
             <div className="space-y-6">
               {sortedGroupNames.map(name => {
-                const variants = groupedProducts[name];
+                const variants = [...groupedProducts[name]].sort((a, b) => {
+                  const brandA = a.brands?.name || '';
+                  const brandB = b.brands?.name || '';
+                  if (brandA !== brandB) return brandA.localeCompare(brandB);
+                  
+                  const subA = a.sub_brand || '';
+                  const subB = b.sub_brand || '';
+                  if (subA !== subB) return subA.localeCompare(subB);
+                  
+                  const colA = a.color || '';
+                  const colB = b.color || '';
+                  return colA.localeCompare(colB);
+                });
                 return (
                   <div key={name} className="border border-gray-200 rounded-lg overflow-hidden">
                     <div className="bg-purple-50 px-4 py-2 border-l-4 border-purple-500 font-bold text-purple-900">

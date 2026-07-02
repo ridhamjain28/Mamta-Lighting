@@ -103,9 +103,44 @@ export default function WireProductManagement() {
       groups[cat].push(p);
     });
 
-    return Object.entries(groups)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .filter(([_, items]) => items.length > 0);
+    Object.keys(groups).forEach(cat => {
+      groups[cat].sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
+    });
+
+    const entries = Object.entries(groups).filter(([_, items]) => items.length > 0);
+
+    // Sort by Brand, then Length numerically
+    entries.sort((a, b) => {
+      const nameA = a[0].toLowerCase();
+      const nameB = b[0].toLowerCase();
+      
+      // Force "Other Wires" or similar to the very end
+      const isOtherA = nameA.includes('other');
+      const isOtherB = nameB.includes('other');
+      if (isOtherA && !isOtherB) return 1;
+      if (!isOtherA && isOtherB) return -1;
+      
+      const parseGroup = (name) => {
+        const match = name.match(/^(.*?)\s*(\d+)\s*(?:M|MTR)$/i);
+        if (match) {
+          return { series: match[1].trim(), length: parseInt(match[2], 10) };
+        }
+        return { series: name, length: 0 };
+      };
+
+      const parsedA = parseGroup(a[0]);
+      const parsedB = parseGroup(b[0]);
+
+      if (parsedA.series !== parsedB.series) {
+        return parsedA.series.localeCompare(parsedB.series);
+      }
+      
+      return parsedA.length - parsedB.length;
+    });
+
+    return entries;
   }, [products]);
 
   if (loading) {
