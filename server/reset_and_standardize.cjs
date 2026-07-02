@@ -16,7 +16,6 @@ const brandMap = {
 function standardize(name) {
   const n = name.toLowerCase().trim();
   
-  // Use simple space or hyphen split without backslashes
   const tokens = n.split(/[ \\-]+/); 
   
   const has = (word) => {
@@ -24,35 +23,12 @@ function standardize(name) {
     return tokens.includes(word);
   };
   
-  // 6A 1Way
-  if ((has('6a') && (has('1way') || has('one') || has('1')) && !has('bell') && !has('ind') && !has('mcb')) || 
-      n.includes('6ax one way flat switch') || n.includes('6a flat 1way') || n.includes('one way switch')) {
-    return 'Switch 6A One-way - 1 Module';
-  }
-  // 6A 2Way
-  if ((has('6a') && (has('2way') || has('two') || has('2')) && !has('bell')) || 
-      n.includes('6a flat 2way') || n.includes('6ax two way flat switch')) {
-    return 'Switch 6A Two-way - 1 Module';
-  }
-  // 16A 1Way
-  if (has('16a') && (has('1way') || has('one') || has('1')) && !has('ind') && !has('mcb')) {
-    return 'Switch 16A One-way - 1 Module';
-  }
-  // 16A 1Way Ind
-  if (has('16a') && (has('1way') || has('one') || has('1')) && has('ind')) {
-    return 'Switch 16A One-way with Indicator - 1 Module';
-  }
-  // 16A 2Way
-  if (has('16a') && (has('2way') || has('two') || has('2'))) {
-    return 'Switch 16A Two-way - 1 Module';
-  }
-  
-  // DP / High Amp Switches
+  // DP / High Amp Switches (Do this first so 20A DP doesn't match normal 1-way)
   if (has('20a') && has('dp')) return 'Switch 20A DP One-way with Indicator - 2 Module';
   if (has('32a') && has('dp') && has('ind')) return 'Switch 32A DP One-way with Indicator - 2 Module';
   if (has('32a') && has('dp') && !has('ind')) return 'Switch 32A DP One-way - 2 Module';
   if (has('25a') && has('dp')) return 'Switch 25A DP One-way - 2 Module';
-  if (has('25a') && (has('1way') || has('one'))) return 'Switch 25A One-way - 1 Module';
+  if (has('25a') && (has('1way') || has('one') || n.includes('one way'))) return 'Switch 25A One-way - 1 Module';
 
   // Bell Push
   if (has('6a') && has('bell') && !has('mega') && !has('ind')) {
@@ -68,6 +44,27 @@ function standardize(name) {
   }
   if (n.includes('6a/16a socket') || n.includes('universal socket') || n.includes('socket 16a and 6a')) {
     return 'Socket 16A and 6A 3-Pin Shuttered - 2 Module';
+  }
+
+  // 16A Switches
+  if (has('16a') && (has('1way') || n.includes('one way') || n.includes('one-way')) && has('ind')) {
+    return 'Switch 16A One-way with Indicator - 1 Module';
+  }
+  if (has('16a') && (has('1way') || n.includes('one way') || n.includes('one-way')) && !has('ind') && !has('mcb')) {
+    return 'Switch 16A One-way - 1 Module';
+  }
+  if (has('16a') && (has('2way') || n.includes('two way') || n.includes('two-way'))) {
+    return 'Switch 16A Two-way - 1 Module';
+  }
+
+  // 6A Switches (Be very specific about 1way vs 2way so '2 module' doesn't trigger 2way)
+  if ((has('6a') && (has('2way') || n.includes('two way') || n.includes('two-way')) && !has('bell')) || 
+      n.includes('6a flat 2way') || n.includes('6ax two way flat switch')) {
+    return 'Switch 6A Two-way - 1 Module';
+  }
+  if ((has('6a') && (has('1way') || n.includes('one way') || n.includes('one-way')) && !has('bell') && !has('ind') && !has('mcb')) || 
+      n.includes('6ax one way flat switch') || n.includes('6a flat 1way') || n.includes('one way switch')) {
+    return 'Switch 6A One-way - 1 Module';
   }
 
   // Fan Regulators
@@ -136,6 +133,7 @@ async function main() {
 
   const workbook = xlsx.readFile(FILE_PATH);
   const productsToInsert = [];
+  const seenMap = new Set(); // To deduplicate standardized products within the same variant
   
   for (const sheetName of workbook.SheetNames) {
     if (['Quotation', 'Preview', 'T&C'].includes(sheetName)) continue;
@@ -153,6 +151,14 @@ async function main() {
       if (!row || !row[0] || isNaN(parseFloat(row[1]))) continue;
       
       const stdName = standardize(row[0]);
+      const key = `${brandId}|${brandInfo.subBrand}|${parts[1]}|${stdName}`;
+      
+      if (seenMap.has(key)) {
+        console.log(`Skipping duplicate product: ${stdName} (${brandInfo.brand} - ${brandInfo.subBrand} - ${parts[1]})`);
+        continue;
+      }
+      seenMap.add(key);
+
       productsToInsert.push({
         name: stdName,
         product_type: 'Manual Product',
@@ -165,13 +171,13 @@ async function main() {
     }
   }
   
-  console.log(`Inserting ${productsToInsert.length} cleanly standardized products...`);
+  console.log(`Inserting ${productsToInsert.length} cleanly deduplicated products...`);
   for (let i = 0; i < productsToInsert.length; i += 100) {
     const chunk = productsToInsert.slice(i, i + 100);
     const { error: insErr } = await supabase.from('products').insert(chunk);
     if (insErr) console.error("Insertion error:", insErr);
   }
-  console.log("Database reset and standardized successfully!");
+  console.log("Database reset, standardized, and deduplicated successfully!");
 }
 
 main().catch(console.error);
