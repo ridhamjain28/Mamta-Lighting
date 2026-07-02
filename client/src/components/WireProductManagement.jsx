@@ -141,7 +141,7 @@ export default function WireProductManagement() {
             />
           </div>
           <div className="w-40">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category (Brand + Length)</label>
             <input
               type="text"
               value={newWire.sub_brand}
