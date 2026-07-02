@@ -3,7 +3,9 @@ import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
 import { Plus, Save, Trash2, Tag, Palette, Bookmark, Pencil, X } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
-
+import * as xlsx from 'xlsx';
+import { standardizeProductName, brandMap } from '../utils/productStandardizer';
+import { UploadCloud, Loader2 } from 'lucide-react';
 export default function SwitchProductManagement() {
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -12,6 +14,7 @@ export default function SwitchProductManagement() {
 
   const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
   const [newBrand, setNewBrand] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
   
   const [deleteBrandConfirm, setDeleteBrandConfirm] = useState({ isOpen: false, id: null });
   const [deleteProductConfirm, setDeleteProductConfirm] = useState({ isOpen: false, id: null });
@@ -127,6 +130,108 @@ export default function SwitchProductManagement() {
     }
   }
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setImportLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = evt.target.result;
+        const workbook = xlsx.read(data, { type: 'array' });
+        
+        const productsToInsert = [];
+        const productsToUpdate = [];
+        const seenMap = new Set();
+        
+        const brandDict = {};
+        brands.forEach(b => brandDict[b.name.toLowerCase()] = b.id);
+
+        for (const sheetName of workbook.SheetNames) {
+          if (['Quotation', 'Preview', 'T&C'].includes(sheetName)) continue;
+          const parts = sheetName.split('-');
+          if (parts.length !== 2) continue;
+          const brandInfo = brandMap[parts[0]];
+          if (!brandInfo) continue;
+          
+          const brandId = brandDict[brandInfo.brand.toLowerCase()];
+          if (!brandId) continue; // Brand doesn't exist in DB
+
+          const sheet = workbook.Sheets[sheetName];
+          const json = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+          
+          for (let i = 1; i < json.length; i++) {
+            const row = json[i];
+            if (!row || !row[0] || isNaN(parseFloat(row[1]))) continue;
+            
+            const stdName = standardizeProductName(row[0]);
+            const color = parts[1];
+            const subBrand = brandInfo.subBrand;
+            
+            const key = `${brandId}|${subBrand}|${color}|${stdName}`;
+            if (seenMap.has(key)) continue; // skip duplicates in excel
+            seenMap.add(key);
+
+            const existing = products.find(p => 
+              p.name === stdName && 
+              p.brand_id === brandId && 
+              (p.sub_brand || '') === subBrand && 
+              (p.color || '') === color
+            );
+
+            const payload = {
+              name: stdName,
+              product_type: 'Manual Product',
+              brand_id: brandId,
+              sub_brand: subBrand,
+              color: color,
+              base_price: parseFloat(row[1]),
+            };
+
+            if (existing) {
+              // Only update if price changed to save DB calls
+              if (existing.base_price !== payload.base_price) {
+                productsToUpdate.push({ ...payload, id: existing.id });
+              }
+            } else {
+              productsToInsert.push(payload);
+            }
+          }
+        }
+
+        // Process Updates
+        let updatedCount = 0;
+        for (let i = 0; i < productsToUpdate.length; i += 100) {
+          const chunk = productsToUpdate.slice(i, i + 100);
+          const { error } = await supabase.from('products').upsert(chunk);
+          if (error) throw error;
+          updatedCount += chunk.length;
+        }
+
+        // Process Inserts
+        let insertedCount = 0;
+        for (let i = 0; i < productsToInsert.length; i += 100) {
+          const chunk = productsToInsert.slice(i, i + 100);
+          const { error } = await supabase.from('products').insert(chunk);
+          if (error) throw error;
+          insertedCount += chunk.length;
+        }
+
+        addToast(`Successfully synced Excel! Updated ${updatedCount}, Added ${insertedCount} products.`, 'success');
+        fetchMetadata(); // Reload DB
+      } catch (error) {
+        console.error(error);
+        addToast('Failed to parse or sync Excel file', 'error');
+      } finally {
+        setImportLoading(false);
+        // Reset file input
+        e.target.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   // Group products by name for display
   const groupedProducts = useMemo(() => {
     const groups = {};
@@ -143,6 +248,34 @@ export default function SwitchProductManagement() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Bulk Import Section */}
+      <div className="bg-purple-50 p-6 rounded-xl shadow-sm border border-purple-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h3 className="font-bold text-purple-900 flex items-center gap-2 text-lg">
+            <UploadCloud className="w-5 h-5" /> Sync Prices from Excel
+          </h3>
+          <p className="text-purple-700 text-sm mt-1">
+            Upload the master <span className="font-mono bg-purple-100 px-1 rounded">Switch Quotation System.xlsx</span> file to automatically add new products and update all prices.
+          </p>
+        </div>
+        <div>
+          <label className={`relative flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium shadow hover:bg-purple-700 transition-colors cursor-pointer ${importLoading ? 'opacity-70 pointer-events-none' : ''}`}>
+            {importLoading ? (
+              <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Syncing...</>
+            ) : (
+              <>Upload Excel File</>
+            )}
+            <input 
+              type="file" 
+              accept=".xlsx" 
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={handleFileUpload}
+              disabled={importLoading}
+            />
+          </label>
+        </div>
+      </div>
+
       {/* Brands Management Section */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Bookmark className="w-5 h-5 text-purple-600"/> Manage Brands</h3>
