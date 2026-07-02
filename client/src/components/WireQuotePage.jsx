@@ -21,6 +21,7 @@ export default function WireQuotePage() {
 
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('brand');
 
   // Local state map: productId -> { qty, price, discount }
   const [localOverrides, setLocalOverrides] = useState({});
@@ -154,10 +155,30 @@ export default function WireQuotePage() {
     });
 
     // Return entries sorted by group name
-    return Object.entries(groups)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .filter(([_, items]) => items.length > 0);
-  }, [allProducts, localOverrides, getOverride]);
+    const entries = Object.entries(groups).filter(([_, items]) => items.length > 0);
+
+    if (sortBy === 'length') {
+      entries.sort((a, b) => {
+        // Extract length numbers from group name (e.g. "90MTR", "180M", "300M")
+        const matchA = a[0].match(/(\d+)\s*(?:M|MTR)/i);
+        const matchB = b[0].match(/(\d+)\s*(?:M|MTR)/i);
+        
+        const numA = matchA ? parseInt(matchA[1], 10) : 0;
+        const numB = matchB ? parseInt(matchB[1], 10) : 0;
+        
+        if (numA !== numB) {
+          return numA - numB;
+        }
+        // Fallback to alphabetical
+        return a[0].localeCompare(b[0]);
+      });
+    } else {
+      // Default: sort alphabetically (brand-wise)
+      entries.sort((a, b) => a[0].localeCompare(b[0]));
+    }
+    
+    return entries;
+  }, [allProducts, localOverrides, getOverride, sortBy]);
 
   if (loading) {
     return (
@@ -194,6 +215,25 @@ export default function WireQuotePage() {
             placeholder="Project Name"
             className="input-field"
           />
+        </div>
+      </div>
+
+      {/* Sorting Toggle */}
+      <div className="bg-white border-b shadow-sm px-5 py-3 flex items-center justify-start space-x-4">
+        <h2 className="text-sm font-semibold text-gray-700">Sort Categories By:</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setSortBy('brand')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${sortBy === 'brand' ? 'bg-green-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            Brand
+          </button>
+          <button
+            onClick={() => setSortBy('length')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${sortBy === 'length' ? 'bg-green-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            Length
+          </button>
         </div>
       </div>
 
