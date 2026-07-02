@@ -4,8 +4,8 @@ import { useToastStore } from '../store/useToastStore';
 import { Plus, Save, Trash2, Tag, Palette, Bookmark, Pencil, X } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import * as xlsx from 'xlsx';
-import { standardizeProductName, brandMap } from '../utils/productStandardizer';
-import { UploadCloud, Loader2 } from 'lucide-react';
+import { standardizeProductName, getProductRank, brandMap } from '../utils/productStandardizer';
+import { UploadCloud, Loader2, Edit2, Check, X as XIcon } from 'lucide-react';
 export default function SwitchProductManagement() {
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -29,6 +29,7 @@ export default function SwitchProductManagement() {
 
   const [nameSearch, setNameSearch] = useState('');
   const [showNameDropdown, setShowNameDropdown] = useState(false);
+  const [editingVariant, setEditingVariant] = useState(null);
 
   useEffect(() => {
     fetchMetadata();
@@ -129,6 +130,37 @@ export default function SwitchProductManagement() {
       addToast('Product deleted', 'success');
     }
   }
+
+  const handleUpdateVariant = async () => {
+    if (!editingVariant) return;
+    const { id, name, sub_brand, color, base_price } = editingVariant;
+    
+    if (!name.trim() || isNaN(parseFloat(base_price))) {
+      addToast('Name and valid price are required', 'error');
+      return;
+    }
+
+    const { error } = await supabase.from('products').update({
+      name: name.trim(),
+      sub_brand: sub_brand.trim() || null,
+      color: color.trim() || null,
+      base_price: parseFloat(base_price)
+    }).eq('id', id);
+
+    if (error) {
+      addToast('Error updating variant', 'error');
+    } else {
+      setProducts(prev => prev.map(p => p.id === id ? { 
+        ...p, 
+        name: name.trim(), 
+        sub_brand: sub_brand.trim() || null, 
+        color: color.trim() || null, 
+        base_price: parseFloat(base_price) 
+      } : p));
+      addToast('Variant updated', 'success');
+      setEditingVariant(null);
+    }
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -241,6 +273,15 @@ export default function SwitchProductManagement() {
     });
     return groups;
   }, [products]);
+
+  const sortedGroupNames = useMemo(() => {
+    return Object.keys(groupedProducts).sort((a, b) => {
+      const rankA = getProductRank(a);
+      const rankB = getProductRank(b);
+      if (rankA !== rankB) return rankA - rankB;
+      return a.localeCompare(b);
+    });
+  }, [groupedProducts]);
 
   if (loading) {
     return <div className="p-8 text-center text-gray-700">Loading...</div>;
@@ -409,49 +450,130 @@ export default function SwitchProductManagement() {
           <h3 className="font-bold text-gray-900">Existing Products & Variants</h3>
         </div>
         <div className="p-4">
-          {Object.entries(groupedProducts).length === 0 ? (
+          {sortedGroupNames.length === 0 ? (
             <div className="text-center text-gray-700 py-8">No switch products found.</div>
           ) : (
             <div className="space-y-6">
-              {Object.entries(groupedProducts).map(([name, variants]) => (
-                <div key={name} className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-purple-50 px-4 py-2 border-l-4 border-purple-500 font-bold text-purple-900">
-                    {name}
+              {sortedGroupNames.map(name => {
+                const variants = groupedProducts[name];
+                return (
+                  <div key={name} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-purple-50 px-4 py-2 border-l-4 border-purple-500 font-bold text-purple-900">
+                      {name}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
+                          <tr>
+                            <th className="text-left px-4 py-2 font-medium w-48">Product Name</th>
+                            <th className="text-left px-4 py-2 font-medium">Brand</th>
+                            <th className="text-left px-4 py-2 font-medium">Sub-brand</th>
+                            <th className="text-left px-4 py-2 font-medium">Color</th>
+                            <th className="text-right px-4 py-2 font-medium">Price (₹)</th>
+                            <th className="text-center px-4 py-2 font-medium w-24">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {variants.map(v => {
+                            const isEditing = editingVariant?.id === v.id;
+                            return (
+                              <tr key={v.id} className={`border-b border-gray-100 last:border-0 hover:bg-gray-50 ${isEditing ? 'bg-blue-50/50' : ''}`}>
+                                <td className="px-4 py-2">
+                                  {isEditing ? (
+                                    <input 
+                                      type="text" 
+                                      className="input-field py-1 px-2 text-sm w-full min-w-[150px]" 
+                                      value={editingVariant.name} 
+                                      onChange={e => setEditingVariant({...editingVariant, name: e.target.value})} 
+                                    />
+                                  ) : (
+                                    <span className="text-gray-400 text-xs italic">Inherited</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-gray-600">{v.brands?.name}</td>
+                                <td className="px-4 py-2">
+                                  {isEditing ? (
+                                    <input 
+                                      type="text" 
+                                      className="input-field py-1 px-2 text-sm w-24" 
+                                      value={editingVariant.sub_brand} 
+                                      onChange={e => setEditingVariant({...editingVariant, sub_brand: e.target.value})} 
+                                    />
+                                  ) : (
+                                    v.sub_brand || '-'
+                                  )}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {isEditing ? (
+                                    <input 
+                                      type="text" 
+                                      className="input-field py-1 px-2 text-sm w-24" 
+                                      value={editingVariant.color} 
+                                      onChange={e => setEditingVariant({...editingVariant, color: e.target.value})} 
+                                    />
+                                  ) : (
+                                    v.color || '-'
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-right font-medium">
+                                  {isEditing ? (
+                                    <input 
+                                      type="number" 
+                                      step="0.01"
+                                      className="input-field py-1 px-2 text-sm w-24 text-right" 
+                                      value={editingVariant.base_price} 
+                                      onChange={e => setEditingVariant({...editingVariant, base_price: e.target.value})} 
+                                    />
+                                  ) : (
+                                    v.base_price.toFixed(2)
+                                  )}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <div className="flex items-center justify-center gap-1">
+                                    {isEditing ? (
+                                      <>
+                                        <button onClick={handleUpdateVariant} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Save">
+                                          <Check className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => setEditingVariant(null)} className="p-1 text-gray-500 hover:bg-gray-200 rounded" title="Cancel">
+                                          <XIcon className="w-4 h-4" />
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button 
+                                          onClick={() => setEditingVariant({ 
+                                            id: v.id, 
+                                            name: v.name, 
+                                            sub_brand: v.sub_brand || '', 
+                                            color: v.color || '', 
+                                            base_price: v.base_price 
+                                          })} 
+                                          className="p-1 text-blue-500 hover:bg-blue-100 rounded transition-colors" 
+                                          title="Edit Variant"
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => setDeleteProductConfirm({ isOpen: true, id: v.id })}
+                                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                          title="Delete Variant"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
-                      <tr>
-                        <th className="text-left px-4 py-2 font-medium">Brand</th>
-                        <th className="text-left px-4 py-2 font-medium">Sub-brand</th>
-                        <th className="text-left px-4 py-2 font-medium">Color</th>
-                        <th className="text-right px-4 py-2 font-medium">Price (₹)</th>
-                        <th className="text-center px-4 py-2 font-medium w-16">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {variants.map(v => (
-                        <tr key={v.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                          <td className="px-4 py-2">{v.brands?.name}</td>
-                          <td className="px-4 py-2">{v.sub_brand || '-'}</td>
-                          <td className="px-4 py-2">{v.color || '-'}</td>
-                          <td className="px-4 py-2 text-right font-medium">
-                            {v.base_price.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2 text-center">
-                            <button
-                              onClick={() => setDeleteProductConfirm({ isOpen: true, id: v.id })}
-                              className="text-gray-400 hover:text-red-600 transition-colors p-2"
-                              title="Delete Variant"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
