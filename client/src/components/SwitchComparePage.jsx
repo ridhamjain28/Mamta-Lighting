@@ -39,7 +39,9 @@ export default function SwitchComparePage() {
           newCols[0] = {
             brandId: initProduct.brand_id?.toString() || '',
             subBrand: initProduct.sub_brand || '',
-            color: initProduct.color || ''
+            color: initProduct.color || '',
+            discount: '',
+            gstIncluded: false
           };
           return newCols;
         });
@@ -113,7 +115,8 @@ export default function SwitchComparePage() {
 
   // Helper to calculate total for a column
   const calculateColumnTotal = (colState) => {
-    let total = 0;
+    let subtotal = 0;
+    const globalDisc = parseFloat(colState.discount) || 0;
     
     // Find matching products in the DB for this variant
     const variantProducts = allProducts.filter(p => 
@@ -125,11 +128,17 @@ export default function SwitchComparePage() {
     compareItems.forEach(cartItem => {
       const match = variantProducts.find(p => p.name === cartItem.name);
       if (match) {
-        total += (match.base_price || 0) * cartItem.quantity;
+        const price = match.base_price || 0;
+        const discountedPrice = price - (price * globalDisc / 100);
+        subtotal += discountedPrice * cartItem.quantity;
       }
     });
 
-    return total;
+    if (colState.gstIncluded) {
+      subtotal += subtotal * 0.18;
+    }
+
+    return Math.round(subtotal);
   };
 
   if (loading) {
@@ -209,6 +218,32 @@ export default function SwitchComparePage() {
                   ))}
                 </select>
               </div>
+              
+              {/* Settings: Discount and GST */}
+              <div className="p-3 bg-white border-b border-gray-100 flex flex-col gap-2 shrink-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-700">Discount (%)</span>
+                  <input 
+                    type="number"
+                    placeholder="0"
+                    className="input-field py-1 px-2 text-sm w-16 text-right"
+                    value={colState.discount}
+                    onChange={(e) => updateColumn(colIndex, 'discount', e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-700">Add 18% GST</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={colState.gstIncluded}
+                      onChange={(e) => updateColumn(colIndex, 'gstIncluded', e.target.checked)}
+                    />
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+              </div>
 
               {/* Itemized List */}
               <div className="flex-1 overflow-y-auto p-0 min-h-0">
@@ -223,15 +258,19 @@ export default function SwitchComparePage() {
                   <tbody>
                     {compareItems.map(cartItem => {
                       const match = variantProducts.find(p => p.name === cartItem.name);
-                      const price = match ? (match.base_price || 0) : 0;
-                      const lineTotal = price * cartItem.quantity;
+                      const basePrice = match ? (match.base_price || 0) : 0;
+                      const discPercent = parseFloat(colState.discount) || 0;
+                      const discountedPrice = basePrice - (basePrice * discPercent / 100);
+                      const lineTotal = discountedPrice * cartItem.quantity;
                       
                       return (
                         <tr key={cartItem.name} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-800">{cartItem.name}</div>
                             {match ? (
-                              <div className="text-xs text-gray-500">₹{price} each</div>
+                              <div className="text-xs text-gray-500">
+                                ₹{basePrice} {discPercent > 0 ? `(-${discPercent}%)` : ''} each
+                              </div>
                             ) : (
                               <div className="text-xs text-red-500 italic">N/A</div>
                             )}

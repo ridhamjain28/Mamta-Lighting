@@ -19,9 +19,9 @@ export const useQuoteStore = create((set, get) => ({
   ...defaultState,
 
   switchCompareColumns: [
-    { brandId: '', subBrand: '', color: '' },
-    { brandId: '', subBrand: '', color: '' },
-    { brandId: '', subBrand: '', color: '' }
+    { brandId: '', subBrand: '', color: '', discount: '', gstIncluded: false },
+    { brandId: '', subBrand: '', color: '', discount: '', gstIncluded: false },
+    { brandId: '', subBrand: '', color: '', discount: '', gstIncluded: false }
   ],
   setSwitchCompareColumns: (updater) => set((state) => ({ 
     switchCompareColumns: typeof updater === 'function' ? updater(state.switchCompareColumns) : updater 
