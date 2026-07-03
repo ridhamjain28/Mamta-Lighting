@@ -51,19 +51,7 @@ function App() {
     }, 0);
   };
 
-  // Unsaved Changes Protection
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (items && items.length > 0) {
-        const message = "You have unsaved changes. Are you sure you want to leave?";
-        e.preventDefault();
-        e.returnValue = message;
-        return message;
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [items]);
+
 
   if (!systemMode) {
     return (
