@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 import { FileText, Save, CheckCircle2, Send, Loader2 } from 'lucide-react';
@@ -26,6 +26,13 @@ export default function QuoteSummary() {
   const [isSaving, setIsSaving] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const { addToast } = useToastStore();
+
+  // Reset success state if any quote parameters change
+  useEffect(() => {
+    if (successData) {
+      setSuccessData(null);
+    }
+  }, [items, customer, globalDiscount, gstIncluded, hideListPrice]);
 
   const { subtotal, discount_amount, gst_amount, grand_total } = getTotals();
 
