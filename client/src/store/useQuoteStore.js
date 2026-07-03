@@ -18,6 +18,15 @@ export const useQuoteStore = create((set, get) => ({
   // --- ACTIVE STATE (Spread at root so components don't need to change) ---
   ...defaultState,
 
+  switchCompareColumns: [
+    { brandId: '', subBrand: '', color: '' },
+    { brandId: '', subBrand: '', color: '' },
+    { brandId: '', subBrand: '', color: '' }
+  ],
+  setSwitchCompareColumns: (updater) => set((state) => ({ 
+    switchCompareColumns: typeof updater === 'function' ? updater(state.switchCompareColumns) : updater 
+  })),
+
   // --- BACKGROUND CACHES ---
   imageCache: { ...defaultState },
   switchCache: { ...defaultState },

@@ -6,18 +6,11 @@ import { Loader2 } from 'lucide-react';
 import { getProductRank } from '../utils/productStandardizer';
 
 export default function SwitchComparePage() {
-  const { items } = useQuoteStore();
+  const { items, switchCompareColumns: columns, setSwitchCompareColumns: setColumns } = useQuoteStore();
   const addToast = useToastStore((s) => s.addToast);
   
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState([]);
-  
-  // State for the 3 comparison columns
-  const [columns, setColumns] = useState([
-    { brandId: '', subBrand: '', color: '' },
-    { brandId: '', subBrand: '', color: '' },
-    { brandId: '', subBrand: '', color: '' }
-  ]);
 
   useEffect(() => {
     fetchProducts();
@@ -39,7 +32,8 @@ export default function SwitchComparePage() {
       const cartProduct = data?.find(p => items.some(it => (it.cartItemId || it.id) === p.id));
       const initProduct = cartProduct || (data && data[0]);
       
-      if (initProduct) {
+      
+      if (initProduct && columns[0].brandId === '') {
         setColumns(prev => {
           const newCols = [...prev];
           newCols[0] = {
