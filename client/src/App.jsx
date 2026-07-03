@@ -8,7 +8,8 @@ import SwitchProductManagement from './components/SwitchProductManagement';
 import WireProductManagement from './components/WireProductManagement';
 import History from './components/History';
 import ToastContainer from './components/ToastContainer';
-import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings } from 'lucide-react';
+import SwitchComparePage from './components/SwitchComparePage';
+import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
 import { supabase } from './supabase';
 
@@ -166,6 +167,14 @@ function App() {
           >
             <Settings className="w-4 h-4" /> Products
           </button>
+          {systemMode === 'Switch Quote' && (
+            <button 
+              onClick={() => setTimeout(() => startTransition(() => setActiveTab('compare')), 0)}
+              className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'compare' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              <GitCompare className="w-4 h-4" /> Compare
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -213,6 +222,12 @@ function App() {
               </div>
             )}
           </>
+        )}
+
+        {activeTab === 'compare' && systemMode === 'Switch Quote' && (
+          <div className="w-full h-full flex flex-col">
+            <SwitchComparePage />
+          </div>
         )}
 
         {activeTab === 'history' && (
