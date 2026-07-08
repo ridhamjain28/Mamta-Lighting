@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { supabase } from '../supabase';
+import { useToastStore } from './useToastStore';
 
 const defaultState = {
   customer: { name: '', phone: '', project: '' },
@@ -152,5 +154,98 @@ export const useQuoteStore = create((set, get) => ({
       gst_amount: gstAmount,
       grand_total: grandTotal
     };
-  }
+  },
+
+  saveQuoteToDatabase: async (finalStatus = null, pdfUrl = null) => {
+    const state = get();
+    const { items, customer, getTotals, quoteId, quoteType, status, setQuoteMetadata, globalDiscount, gstIncluded } = state;
+    
+    const stat = finalStatus || status;
+
+    if (items.length === 0) {
+      useToastStore.getState().addToast("Cart is empty", "error");
+      return null;
+    }
+
+    const activeItems = items.filter(item => Number(item.quantity) > 0);
+    const { subtotal, discount_amount, gst_amount, grand_total } = getTotals();
+
+    const payload = {
+      customer_name: customer.name || '',
+      phone_number: customer.phone,
+      project_name: customer.project,
+      subtotal,
+      tax_amount: gst_amount,
+      total_discount: discount_amount,
+      grand_total,
+      quote_type: quoteType,
+      status: stat,
+      updated_at: new Date().toISOString()
+    };
+
+    if (pdfUrl) {
+      payload.pdf_url = pdfUrl;
+    }
+
+    try {
+      let savedQuote;
+      if (quoteId) {
+        const { data, error } = await supabase
+          .from('quotations')
+          .update(payload)
+          .eq('id', quoteId)
+          .select()
+          .single();
+        if (error) throw error;
+        savedQuote = data;
+        
+        await supabase.from('quotation_items').delete().eq('quotation_id', savedQuote.id);
+      } else {
+        payload.quote_number = 'QT-' + Math.floor(100000 + Math.random() * 900000).toString();
+        const { data, error } = await supabase
+          .from('quotations')
+          .insert([payload])
+          .select()
+          .single();
+        if (error) throw error;
+        savedQuote = data;
+      }
+      
+      if (activeItems.length > 0) {
+        const itemsPayload = activeItems.map(item => {
+          let itemPrice = item.custom_price_override;
+          if (itemPrice === null || itemPrice === undefined || itemPrice === '' || Number(itemPrice) <= 0) {
+            itemPrice = item.base_price;
+          } else {
+            itemPrice = Number(itemPrice);
+          }
+          const itemDisc = (item.discount_override !== '' && item.discount_override !== null) 
+              ? Number(item.discount_override) 
+              : (Number(globalDiscount) || 0);
+          const finalPrice = itemPrice - (itemPrice * itemDisc / 100);
+          
+          return {
+            quotation_id: savedQuote.id,
+            product_id: item.id,
+            quantity: Number(item.quantity),
+            base_price: item.base_price,
+            discount_override: item.discount_override !== '' ? Number(item.discount_override) : null,
+            custom_price_override: item.custom_price_override !== null ? Number(item.custom_price_override) : null,
+            final_unit_price: finalPrice,
+            line_total: finalPrice * Number(item.quantity)
+          };
+        });
+        
+        const { error: itemsError } = await supabase.from('quotation_items').insert(itemsPayload);
+        if (itemsError) throw itemsError;
+      }
+      
+      setQuoteMetadata({ quoteId: savedQuote.id, status: savedQuote.status });
+      return savedQuote;
+    } catch (error) {
+      console.error("Save error:", error);
+      useToastStore.getState().addToast("Failed to save quotation: " + error.message, "error");
+      return null;
+    }
+  },
 }));

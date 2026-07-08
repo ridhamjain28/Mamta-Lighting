@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
-import { ArrowLeft, XCircle } from 'lucide-react';
+import { useToastStore } from '../store/useToastStore';
+import { ArrowLeft, XCircle, Save, Loader2 } from 'lucide-react';
 
 export default function CustomerDetails() {
-  const { customer, setCustomer, setQuoteMetadata, quoteType, quoteId, clearCart } = useQuoteStore();
+  const { customer, setCustomer, setQuoteMetadata, quoteType, quoteId, clearCart, saveQuoteToDatabase, items } = useQuoteStore();
+  const [isSaving, setIsSaving] = useState(false);
+  const { addToast } = useToastStore();
+
+  const handleManualSave = async () => {
+    setIsSaving(true);
+    const saved = await saveQuoteToDatabase('Draft');
+    if (saved) {
+      addToast("Quotation saved successfully", "success");
+    }
+    setIsSaving(false);
+  };
 
   return (
     <div className="p-6 border-b border-gray-200 bg-slate-50">
@@ -12,10 +24,19 @@ export default function CustomerDetails() {
           {quoteId ? 'Editing Quotation' : 'Quotation Details'}
         </h2>
         <div className="flex gap-2">
+          <button 
+            onClick={handleManualSave}
+            disabled={isSaving || items.length === 0}
+            className="text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 flex items-center gap-1 bg-white px-3 py-1.5 rounded border border-gray-300 shadow-sm transition-colors"
+            title="Save Quote as Draft"
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
+            Save
+          </button>
           {quoteId && (
             <button 
               onClick={clearCart}
-              className="text-sm font-medium text-red-600 hover:text-red-800 flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm transition-colors"
+              className="text-sm font-medium text-red-600 hover:text-red-800 flex items-center gap-1 bg-white px-2 py-1.5 rounded border border-gray-200 shadow-sm transition-colors"
               title="Cancel editing and start a new quote"
             >
               <XCircle className="w-4 h-4" /> Cancel Edit
@@ -24,7 +45,7 @@ export default function CustomerDetails() {
           {quoteType !== 'Image Quote' && (
             <button 
               onClick={() => setQuoteMetadata({ quoteType: null })}
-              className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-white px-2 py-1.5 rounded border border-gray-200 shadow-sm"
             >
               <ArrowLeft className="w-4 h-4" /> Change Type
             </button>

@@ -19,11 +19,11 @@ export default function QuoteSummary() {
     quoteType,
     status,
     setQuoteMetadata,
-    clearCart
+    clearCart,
+    saveQuoteToDatabase
   } = useQuoteStore();
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const { addToast } = useToastStore();
 
@@ -36,104 +36,6 @@ export default function QuoteSummary() {
 
   const { subtotal, discount_amount, gst_amount, grand_total } = getTotals();
 
-  const saveQuoteToDatabase = async (finalStatus = status, pdfUrl = null) => {
-    if (items.length === 0) {
-      addToast("Cart is empty", "error");
-      return null;
-    }
-
-
-    const activeItems = items.filter(item => Number(item.quantity) > 0);
-
-    const payload = {
-      customer_name: customer.name || '',
-      phone_number: customer.phone,
-      project_name: customer.project,
-      subtotal,
-      tax_amount: gst_amount,
-      total_discount: discount_amount,
-      grand_total,
-      quote_type: quoteType,
-      status: finalStatus,
-      updated_at: new Date().toISOString()
-    };
-
-    if (pdfUrl) {
-      payload.pdf_url = pdfUrl;
-    }
-
-    try {
-      let savedQuote;
-      if (quoteId) {
-        const { data, error } = await supabase
-          .from('quotations')
-          .update(payload)
-          .eq('id', quoteId)
-          .select()
-          .single();
-        if (error) throw error;
-        savedQuote = data;
-        
-        // Delete existing items
-        await supabase.from('quotation_items').delete().eq('quotation_id', savedQuote.id);
-      } else {
-        payload.quote_number = 'QT-' + Math.floor(100000 + Math.random() * 900000).toString();
-        const { data, error } = await supabase
-          .from('quotations')
-          .insert([payload])
-          .select()
-          .single();
-        if (error) throw error;
-        savedQuote = data;
-      }
-      
-      // Insert items
-      if (activeItems.length > 0) {
-        const itemsPayload = activeItems.map(item => {
-          let itemPrice = item.custom_price_override;
-          if (itemPrice === null || itemPrice === undefined || itemPrice === '' || Number(itemPrice) <= 0) {
-            itemPrice = item.base_price;
-          } else {
-            itemPrice = Number(itemPrice);
-          }
-          const itemDisc = (item.discount_override !== '' && item.discount_override !== null) 
-              ? Number(item.discount_override) 
-              : (Number(globalDiscount) || 0);
-          const finalPrice = itemPrice - (itemPrice * itemDisc / 100);
-          
-          return {
-            quotation_id: savedQuote.id,
-            product_id: item.id,
-            quantity: Number(item.quantity),
-            base_price: item.base_price,
-            discount_override: item.discount_override !== '' ? Number(item.discount_override) : null,
-            custom_price_override: item.custom_price_override !== null ? Number(item.custom_price_override) : null,
-            final_unit_price: finalPrice,
-            line_total: finalPrice * Number(item.quantity)
-          };
-        });
-        
-        const { error: itemsError } = await supabase.from('quotation_items').insert(itemsPayload);
-        if (itemsError) throw itemsError;
-      }
-      
-      setQuoteMetadata({ quoteId: savedQuote.id, status: savedQuote.status });
-      return savedQuote;
-    } catch (error) {
-      console.error("Save error:", error);
-      addToast("Failed to save quotation: " + error.message, "error");
-      return null;
-    }
-  };
-
-  const handleManualSave = async () => {
-    setIsSaving(true);
-    const saved = await saveQuoteToDatabase('Draft');
-    if (saved) {
-      addToast("Quotation saved successfully", "success");
-    }
-    setIsSaving(false);
-  };
 
   const handleGeneratePdf = async () => {
     if (items.length === 0) return addToast("Cart is empty", "error");
@@ -193,8 +95,9 @@ export default function QuoteSummary() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const customerNameForFile = customer.name ? customer.name.replace(/\s+/g, '-') : 'Walk-in';
-        a.download = `Quotation-${customerNameForFile}.pdf`;
+        const projPart = customer.project ? ` - ${customer.project}` : '';
+        const namePart = customer.name ? customer.name : 'Walk-in';
+        a.download = `Quotation - ${namePart}${projPart}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -238,7 +141,9 @@ export default function QuoteSummary() {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `Quotation-${customer.name.replace(/\\s+/g, '-')}.pdf`;
+                const projPart = customer.project ? ` - ${customer.project}` : '';
+                const namePart = customer.name ? customer.name : 'Walk-in';
+                a.download = `Quotation - ${namePart}${projPart}.pdf`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -330,18 +235,9 @@ export default function QuoteSummary() {
         
         <div className="flex gap-3">
           <button 
-            onClick={handleManualSave}
-            disabled={isSaving || isGenerating || items.length === 0}
-            className="flex-1 bg-white border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-600 text-gray-700 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-            Save
-          </button>
-          
-          <button 
             onClick={handleGeneratePdf}
-            disabled={isGenerating || isSaving || items.length === 0}
-            className="flex-[2] bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
+            disabled={isGenerating || items.length === 0}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
           >
             {isGenerating ? (
               <Loader2 className="w-5 h-5 animate-spin" />
