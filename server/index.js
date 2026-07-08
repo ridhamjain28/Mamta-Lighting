@@ -145,13 +145,14 @@ app.post('/api/quotation', async (req, res) => {
       
       const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
       const displayProductName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
+      const formattedQty = `${item.quantity} ${item.unit_type || 'N'}`;
       
       if (isManualQuote) {
         return `
           <tr>
             <td class="text-center font-bold">${index + 1}</td>
             <td class="font-bold">${displayProductName}</td>
-            <td class="text-center font-bold">${item.quantity}</td>
+            <td class="text-center font-bold">${formattedQty}</td>
             <td class="text-right font-bold">${customOverride.toFixed(2)}</td>
             <td class="text-right font-bold">${discountPercentage > 0 ? discountPercentage + '%' : '-'}</td>
             <td class="text-right font-bold">${total.toFixed(2)}</td>
@@ -167,7 +168,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-center font-bold">${index + 1}</td>
             <td class="text-center">${imageUrl}</td>
             <td class="font-bold">${displayProductName}</td>
-            <td class="text-center font-bold">${item.quantity}</td>
+            <td class="text-center font-bold">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
             <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
             <td class="text-right font-bold">${total.toFixed(2)}</td>
@@ -178,7 +179,7 @@ app.post('/api/quotation', async (req, res) => {
           <tr>
             <td class="text-center font-bold">${index + 1}</td>
             <td class="font-bold">${displayProductName}</td>
-            <td class="text-center font-bold">${item.quantity}</td>
+            <td class="text-center font-bold">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
             <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
             <td class="text-right font-bold">${total.toFixed(2)}</td>
@@ -198,17 +199,7 @@ app.post('/api/quotation', async (req, res) => {
     }
 
     // Puppeteer Header Template
-    const headerTemplate = `
-      <div style="font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; padding: 0 15mm; display: flex; justify-content: flex-end; align-items: flex-start; -webkit-print-color-adjust: exact;">
-        <div style="text-align: right;">
-          ${logos.mamta ? `<img src="${logos.mamta}" style="width: 250px; display: inline-block;" />` : `<div style="font-size: 32px; font-weight: bold; color: #3b82f6;">MAMTA</div>`}
-          <div style="font-size: 11px; line-height: 1.4; color: #000; margin-top: 5px;">
-            12, Kashyap Chambers, Opp. Mudit Palace,<br>
-            Station Road, Bardoli - 394601
-          </div>
-        </div>
-      </div>
-    `;
+    const headerTemplate = `<span></span>`;
 
     // Puppeteer Footer Template (Now includes brand logos on every page)
     const footerTemplate = `
@@ -254,6 +245,15 @@ app.post('/api/quotation', async (req, res) => {
         </style>
       </head>
       <body>
+        <div style="display: flex; justify-content: flex-end; align-items: flex-start; margin-bottom: 20px;">
+          <div style="text-align: right;">
+            ${logos.mamta ? `<img src="${logos.mamta}" style="width: 250px; display: inline-block;" />` : `<div style="font-size: 32px; font-weight: bold; color: #3b82f6;">MAMTA</div>`}
+            <div style="font-size: 11px; line-height: 1.4; color: #000; margin-top: 5px;">
+              12, Kashyap Chambers, Opp. Mudit Palace,<br>
+              Station Road, Bardoli - 394601
+            </div>
+          </div>
+        </div>
 
         <div class="customer-info">
           <div class="customer-info-left">
@@ -411,7 +411,7 @@ app.post('/api/quotation', async (req, res) => {
       headerTemplate: headerTemplate,
       footerTemplate: footerTemplate,
       margin: { 
-        top: '145px',    
+        top: '20mm',    
         bottom: '100px', 
         right: '15mm', 
         left: '15mm' 

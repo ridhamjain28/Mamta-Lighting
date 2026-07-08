@@ -9,7 +9,8 @@ import WireProductManagement from './components/WireProductManagement';
 import History from './components/History';
 import ToastContainer from './components/ToastContainer';
 import SwitchComparePage from './components/SwitchComparePage';
-import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare } from 'lucide-react';
+import QuotePreview from './components/QuotePreview';
+import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare, Eye } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
 import { supabase } from './supabase';
 
@@ -143,6 +144,14 @@ function App() {
           >
             <FileText className="w-4 h-4" /> New Quote
           </button>
+          {systemMode === 'Image Quote' && (
+            <button 
+              onClick={() => setTimeout(() => startTransition(() => setActiveTab('preview')), 0)}
+              className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              <Eye className="w-4 h-4" /> Preview
+            </button>
+          )}
           <button 
             onClick={() => setTimeout(() => startTransition(() => setActiveTab('history')), 0)}
             className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
@@ -215,6 +224,12 @@ function App() {
         {activeTab === 'compare' && systemMode === 'Switch Quote' && (
           <div className="w-full h-full flex flex-col">
             <SwitchComparePage />
+          </div>
+        )}
+
+        {activeTab === 'preview' && systemMode === 'Image Quote' && (
+          <div className="w-full h-full flex flex-col overflow-y-auto">
+            <QuotePreview />
           </div>
         )}
 

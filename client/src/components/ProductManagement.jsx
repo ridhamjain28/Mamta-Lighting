@@ -18,7 +18,8 @@ export default function ProductManagement() {
     base_price: '',
     description: '',
     variants: [],
-    product_type: systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product'
+    product_type: systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product',
+    unit_type: 'N'
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
@@ -62,7 +63,8 @@ export default function ProductManagement() {
       base_price: prod.base_price || '',
       description: prod.description || '',
       variants: prod.variants || [],
-      product_type: prod.product_type || (systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product')
+      product_type: prod.product_type || (systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product'),
+      unit_type: prod.unit_type || 'N'
     });
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -136,11 +138,12 @@ export default function ProductManagement() {
       const payload = {
         name: formData.name,
         model_number: formData.model_number,
-        brand_id: formData.brand_id ? parseInt(formData.brand_id) : null,
+        brand_id: (formData.brand_id && !isNaN(parseInt(formData.brand_id))) ? parseInt(formData.brand_id) : null,
         base_price: parseFloat(formData.base_price) || 0,
         description: formData.description,
         variants: formData.variants,
-        product_type: formData.product_type
+        product_type: formData.product_type,
+        unit_type: formData.unit_type || 'N'
       };
 
       if (primary_image_url !== undefined) {
@@ -236,6 +239,14 @@ export default function ProductManagement() {
                     {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type *</label>
+                  <select className="input-field" value={formData.unit_type} onChange={e => setFormData({...formData, unit_type: e.target.value})}>
+                    <option value="N">N</option>
+                    <option value="per metre">per metre</option>
+                    <option value="per kg">per kg</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -246,9 +257,9 @@ export default function ProductManagement() {
                 {systemMode !== 'Manual Quote' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {editingId ? 'Update Image (Optional)' : 'Product Image *'}
+                      {editingId ? 'Update Image (Optional)' : 'Product Image (Optional)'}
                     </label>
-                    <input required={!editingId} type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                    <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
                   </div>
                 )}
                 
@@ -369,7 +380,7 @@ export default function ProductManagement() {
                         )}
                         <td className="py-3 px-4">
                           <div className="font-semibold text-gray-900">{product.name}</div>
-                          <div className="text-xs text-gray-700">Model: {product.model_number || 'N/A'}</div>
+                          <div className="text-xs text-gray-700">Model: {product.model_number || 'N/A'} • Unit: {product.unit_type || 'N'}</div>
                         </td>
                         <td className="py-3 px-4">
                           <div className="text-xs text-gray-700">{product.brands?.name || '-'}</div>
