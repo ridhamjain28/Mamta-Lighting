@@ -145,7 +145,11 @@ app.post('/api/quotation', async (req, res) => {
       
       const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
       const displayProductName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
-      const formattedQty = `${item.quantity} ${item.unit_type || 'N'}`;
+      const unit = item.unit_type || 'N';
+      const isUnitN = unit === 'N';
+      const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
+      const formattedRate = isUnitN ? customOverride.toFixed(2) : `${customOverride.toFixed(2)} ${unit}`;
+      const formattedNetPrice = isUnitN ? netPrice.toFixed(2) : `${netPrice.toFixed(2)} ${unit}`;
       
       if (isManualQuote) {
         return `
@@ -153,7 +157,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-center font-bold">${index + 1}</td>
             <td class="font-bold">${displayProductName}</td>
             <td class="text-center font-bold">${formattedQty}</td>
-            <td class="text-right font-bold">${customOverride.toFixed(2)}</td>
+            <td class="text-right font-bold">${formattedRate}</td>
             <td class="text-right font-bold">${discountPercentage > 0 ? discountPercentage + '%' : '-'}</td>
             <td class="text-right font-bold">${total.toFixed(2)}</td>
           </tr>
@@ -170,7 +174,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="font-bold">${displayProductName}</td>
             <td class="text-center font-bold">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
-            <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
+            <td class="text-right font-bold">${formattedNetPrice}</td>
             <td class="text-right font-bold">${total.toFixed(2)}</td>
           </tr>
         `;
@@ -181,7 +185,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="font-bold">${displayProductName}</td>
             <td class="text-center font-bold">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
-            <td class="text-right font-bold">${netPrice.toFixed(2)}</td>
+            <td class="text-right font-bold">${formattedNetPrice}</td>
             <td class="text-right font-bold">${total.toFixed(2)}</td>
           </tr>
         `;

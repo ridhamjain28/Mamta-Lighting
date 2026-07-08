@@ -105,7 +105,11 @@ export default function QuotePreview() {
                   
                   const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
                   const displayProductName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
-                  const formattedQty = `${item.quantity} ${item.unit_type || 'N'}`;
+                  const unit = item.unit_type || 'N';
+                  const isUnitN = unit === 'N';
+                  const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
+                  const formattedRate = isUnitN ? customOverride.toFixed(2) : `${customOverride.toFixed(2)} ${unit}`;
+                  const formattedNetPrice = isUnitN ? netPrice.toFixed(2) : `${netPrice.toFixed(2)} ${unit}`;
 
                   if (isManualQuote) {
                     return (
@@ -113,7 +117,7 @@ export default function QuotePreview() {
                         <td className="border border-black p-2 text-center font-bold">{index + 1}</td>
                         <td className="border border-black p-2 font-bold">{displayProductName}</td>
                         <td className="border border-black p-2 text-center font-bold">{formattedQty}</td>
-                        <td className="border border-black p-2 text-right font-bold">{customOverride.toFixed(2)}</td>
+                        <td className="border border-black p-2 text-right font-bold">{formattedRate}</td>
                         <td className="border border-black p-2 text-right font-bold">{discountPercentage > 0 ? `${discountPercentage}%` : '-'}</td>
                         <td className="border border-black p-2 text-right font-bold">{total.toFixed(2)}</td>
                       </tr>
@@ -135,7 +139,7 @@ export default function QuotePreview() {
                       <td className="border border-black p-2 font-bold">{displayProductName}</td>
                       <td className="border border-black p-2 text-center font-bold">{formattedQty}</td>
                       {!hideListPrice && <td className="border border-black p-2 text-right font-bold">{listPrice.toFixed(2)}</td>}
-                      <td className="border border-black p-2 text-right font-bold">{netPrice.toFixed(2)}</td>
+                      <td className="border border-black p-2 text-right font-bold">{formattedNetPrice}</td>
                       <td className="border border-black p-2 text-right font-bold">{total.toFixed(2)}</td>
                     </tr>
                   );
