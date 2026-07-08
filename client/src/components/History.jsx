@@ -141,18 +141,17 @@ export default function History({ setActiveTab }) {
 
   const handleDownloadPdf = async (quote) => {
     try {
-      const response = await fetch(quote.pdf_url);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
       const projPart = quote.project_name ? ` - ${quote.project_name}` : '';
       const namePart = quote.customer_name ? quote.customer_name : 'Walk-in';
-      a.download = `Quotation - ${namePart}${projPart}.pdf`;
+      const fileName = `Quotation - ${namePart}${projPart}.pdf`;
+      const downloadUrl = `${quote.pdf_url}?download=${encodeURIComponent(fileName)}`;
+      
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(url);
     } catch (err) {
       window.open(quote.pdf_url, '_blank');
     }

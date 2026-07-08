@@ -90,18 +90,17 @@ export default function QuoteSummary() {
       await saveQuoteToDatabase('Completed', data.pdfUrl);
 
       try {
-        const pdfResponse = await fetch(data.pdfUrl);
-        const blob = await pdfResponse.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
         const projPart = customer.project ? ` - ${customer.project}` : '';
         const namePart = customer.name ? customer.name : 'Walk-in';
-        a.download = `Quotation - ${namePart}${projPart}.pdf`;
+        const fileName = `Quotation - ${namePart}${projPart}.pdf`;
+        const downloadUrl = `${data.pdfUrl}?download=${encodeURIComponent(fileName)}`;
+        
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         a.remove();
-        window.URL.revokeObjectURL(url);
       } catch (dlError) {
         console.error("Direct download failed:", dlError);
         window.open(data.pdfUrl, '_blank');
@@ -136,18 +135,17 @@ export default function QuoteSummary() {
           <button 
             onClick={async () => {
               try {
-                const pdfResponse = await fetch(successData.pdfUrl);
-                const blob = await pdfResponse.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
                 const projPart = customer.project ? ` - ${customer.project}` : '';
                 const namePart = customer.name ? customer.name : 'Walk-in';
-                a.download = `Quotation - ${namePart}${projPart}.pdf`;
+                const fileName = `Quotation - ${namePart}${projPart}.pdf`;
+                const downloadUrl = `${successData.pdfUrl}?download=${encodeURIComponent(fileName)}`;
+                
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = fileName;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-                window.URL.revokeObjectURL(url);
               } catch (e) {
                 window.open(successData.pdfUrl, '_blank');
               }
