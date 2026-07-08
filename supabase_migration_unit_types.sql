@@ -9,3 +9,6 @@ CREATE TABLE IF NOT EXISTS unit_types (
 -- Insert default unit types
 INSERT INTO unit_types (name) VALUES ('N'), ('per metre'), ('per kg')
 ON CONFLICT (name) DO NOTHING;
+
+-- Disable Row Level Security (so the client can read/write freely)
+ALTER TABLE unit_types DISABLE ROW LEVEL SECURITY;

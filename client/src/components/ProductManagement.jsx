@@ -19,7 +19,7 @@ export default function ProductManagement() {
     description: '',
     variants: [],
     product_type: systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product',
-    unit_type: 'N'
+    unit_type: ''
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
@@ -70,7 +70,7 @@ export default function ProductManagement() {
       description: prod.description || '',
       variants: prod.variants || [],
       product_type: prod.product_type || (systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product'),
-      unit_type: prod.unit_type || 'N'
+      unit_type: prod.unit_type || ''
     });
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -120,18 +120,35 @@ export default function ProductManagement() {
   const handleAddUnitType = async () => {
     if (!newUnitType.trim()) return;
     const { data, error } = await supabase.from('unit_types').insert([{ name: newUnitType.trim() }]).select();
-    if (!error && data) { setUnitTypes([...unitTypes, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); setNewUnitType(''); }
+    if (error) {
+       addToast("Error adding unit type: " + error.message, "error");
+       console.error("Add unit type error:", error);
+    }
+    if (!error && data) { 
+       setUnitTypes([...unitTypes, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); 
+       setNewUnitType(''); 
+       addToast("Unit type added successfully", "success");
+    }
   };
   const handleDeleteUnitType = async (id) => {
     const { error } = await supabase.from('unit_types').delete().eq('id', id);
-    if (!error) { setUnitTypes(unitTypes.filter(u => u.id !== id)); fetchProducts(); }
+    if (error) {
+       addToast("Error deleting unit type: " + error.message, "error");
+    } else {
+       setUnitTypes(unitTypes.filter(u => u.id !== id)); 
+       fetchProducts(); 
+       addToast("Unit type deleted", "success");
+    }
   };
   const handleUpdateUnitType = async (id) => {
     if (!editingUnitType.name.trim()) return;
     const { error } = await supabase.from('unit_types').update({ name: editingUnitType.name.trim() }).eq('id', id);
-    if (!error) { 
+    if (error) {
+       addToast("Error updating unit type: " + error.message, "error");
+    } else { 
        setUnitTypes(unitTypes.map(u => u.id === id ? { ...u, name: editingUnitType.name.trim() } : u).sort((a,b)=>a.name.localeCompare(b.name))); 
        fetchProducts();
+       addToast("Unit type updated", "success");
     }
     setEditingUnitType({ id: null, name: '' });
   };
@@ -168,7 +185,7 @@ export default function ProductManagement() {
         description: formData.description,
         variants: formData.variants,
         product_type: formData.product_type,
-        unit_type: formData.unit_type || 'N'
+        unit_type: formData.unit_type || null
       };
 
       if (primary_image_url !== undefined) {
@@ -290,7 +307,8 @@ export default function ProductManagement() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type *</label>
-                  <select className="input-field" value={formData.unit_type} onChange={e => setFormData({...formData, unit_type: e.target.value})}>
+                  <select required className="input-field" value={formData.unit_type} onChange={e => setFormData({...formData, unit_type: e.target.value})}>
+                    <option value="" disabled>Select Unit Type</option>
                     {unitTypes.length === 0 ? (
                        <>
                          <option value="N">N</option>
