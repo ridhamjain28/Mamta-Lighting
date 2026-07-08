@@ -26,6 +26,9 @@ export default function ProductManagement() {
 
   const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
   const [newBrand, setNewBrand] = useState('');
+  const [unitTypes, setUnitTypes] = useState([]);
+  const [editingUnitType, setEditingUnitType] = useState({ id: null, name: '' });
+  const [newUnitType, setNewUnitType] = useState('');
   const { addToast } = useToastStore();
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export default function ProductManagement() {
   async function fetchMetadata() {
     const { data: brandData } = await supabase.from('brands').select('*');
     if (brandData) setBrands(brandData.sort((a,b)=>a.name.localeCompare(b.name)));
+
+    const { data: unitTypeData } = await supabase.from('unit_types').select('*');
+    if (unitTypeData) setUnitTypes(unitTypeData.sort((a,b)=>a.name.localeCompare(b.name)));
   }
 
   async function fetchProducts() {
@@ -109,6 +115,25 @@ export default function ProductManagement() {
        fetchProducts();
     }
     setEditingBrand({ id: null, name: '' });
+  };
+
+  const handleAddUnitType = async () => {
+    if (!newUnitType.trim()) return;
+    const { data, error } = await supabase.from('unit_types').insert([{ name: newUnitType.trim() }]).select();
+    if (!error && data) { setUnitTypes([...unitTypes, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); setNewUnitType(''); }
+  };
+  const handleDeleteUnitType = async (id) => {
+    const { error } = await supabase.from('unit_types').delete().eq('id', id);
+    if (!error) { setUnitTypes(unitTypes.filter(u => u.id !== id)); fetchProducts(); }
+  };
+  const handleUpdateUnitType = async (id) => {
+    if (!editingUnitType.name.trim()) return;
+    const { error } = await supabase.from('unit_types').update({ name: editingUnitType.name.trim() }).eq('id', id);
+    if (!error) { 
+       setUnitTypes(unitTypes.map(u => u.id === id ? { ...u, name: editingUnitType.name.trim() } : u).sort((a,b)=>a.name.localeCompare(b.name))); 
+       fetchProducts();
+    }
+    setEditingUnitType({ id: null, name: '' });
   };
 
   const handleSubmit = async (e) => {
@@ -201,6 +226,30 @@ export default function ProductManagement() {
                 ))}
               </div>
             </div>
+
+            {/* Unit Types */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Tag className="w-5 h-5 text-blue-600"/> Manage Unit Types</h3>
+              <div className="flex gap-2 mb-4">
+                <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Unit Type..." value={newUnitType} onChange={e => setNewUnitType(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddUnitType()} />
+                <button onClick={handleAddUnitType} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition-colors font-medium">Add</button>
+              </div>
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                {unitTypes.map(u => (
+                  <div key={u.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors group">
+                    {editingUnitType.id === u.id ? (
+                      <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingUnitType.name} onChange={e => setEditingUnitType({...editingUnitType, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateUnitType(u.id)} onBlur={() => handleUpdateUnitType(u.id)} />
+                    ) : (
+                      <span className="text-sm text-gray-700 font-medium px-1">{u.name}</span>
+                    )}
+                    <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setEditingUnitType({id: u.id, name: u.name})} className="p-1.5 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                      <button onClick={() => handleDeleteUnitType(u.id)} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Form Section */}
@@ -242,9 +291,15 @@ export default function ProductManagement() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type *</label>
                   <select className="input-field" value={formData.unit_type} onChange={e => setFormData({...formData, unit_type: e.target.value})}>
-                    <option value="N">N</option>
-                    <option value="per metre">per metre</option>
-                    <option value="per kg">per kg</option>
+                    {unitTypes.length === 0 ? (
+                       <>
+                         <option value="N">N</option>
+                         <option value="per metre">per metre</option>
+                         <option value="per kg">per kg</option>
+                       </>
+                    ) : (
+                       unitTypes.map(u => <option key={u.id} value={u.name}>{u.name}</option>)
+                    )}
                   </select>
                 </div>
               </div>
