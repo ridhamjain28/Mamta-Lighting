@@ -223,11 +223,16 @@ app.post('/api/quotation', async (req, res) => {
     `;
 
     // Exact layout based on the user's provided PDF
+    const projPart = project_name ? ` - ${project_name}` : '';
+    const namePart = customer_name ? customer_name : 'Walk-in';
+    const documentTitle = `Quotation - ${namePart}${projPart}`;
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
+        <title>${documentTitle}</title>
         <style>
           body { font-family: Arial, sans-serif; font-size: 14px; margin: 0; padding: 0; color: #000; }
           
