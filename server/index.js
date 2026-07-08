@@ -144,7 +144,8 @@ app.post('/api/quotation', async (req, res) => {
       const total = netPrice * item.quantity;
       
       const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
-      const displayProductName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
+      const baseDisplayName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
+      const displayProductName = (isImageQuote && item.brands?.name) ? `${baseDisplayName} - ${item.brands.name}` : baseDisplayName;
       const unit = item.unit_type || 'N';
       const isUnitN = unit === 'N';
       const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
