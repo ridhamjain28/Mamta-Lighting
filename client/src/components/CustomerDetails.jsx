@@ -1,22 +1,35 @@
 import React from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, XCircle } from 'lucide-react';
 
 export default function CustomerDetails() {
-  const { customer, setCustomer, setQuoteMetadata, quoteType } = useQuoteStore();
+  const { customer, setCustomer, setQuoteMetadata, quoteType, quoteId, clearCart } = useQuoteStore();
 
   return (
     <div className="p-6 border-b border-gray-200 bg-slate-50">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-800">Quotation Details</h2>
-        {quoteType !== 'Image Quote' && (
-          <button 
-            onClick={() => setQuoteMetadata({ quoteType: null })}
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm"
-          >
-            <ArrowLeft className="w-4 h-4" /> Change Type
-          </button>
-        )}
+        <h2 className="text-lg font-bold text-gray-800">
+          {quoteId ? 'Editing Quotation' : 'Quotation Details'}
+        </h2>
+        <div className="flex gap-2">
+          {quoteId && (
+            <button 
+              onClick={clearCart}
+              className="text-sm font-medium text-red-600 hover:text-red-800 flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm transition-colors"
+              title="Cancel editing and start a new quote"
+            >
+              <XCircle className="w-4 h-4" /> Cancel Edit
+            </button>
+          )}
+          {quoteType !== 'Image Quote' && (
+            <button 
+              onClick={() => setQuoteMetadata({ quoteType: null })}
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4" /> Change Type
+            </button>
+          )}
+        </div>
       </div>
       <div className="space-y-3">
         <input 
