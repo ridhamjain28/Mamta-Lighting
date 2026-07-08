@@ -139,20 +139,22 @@ export default function History({ setActiveTab }) {
     setActiveTab('new-quote');
   };
 
-  const handleDownloadPdf = async (pdfUrl, quoteNumber) => {
+  const handleDownloadPdf = async (quote) => {
     try {
-      const response = await fetch(pdfUrl);
+      const response = await fetch(quote.pdf_url);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Quotation-${quoteNumber}.pdf`;
+      const projPart = quote.project_name ? ` - ${quote.project_name}` : '';
+      const namePart = quote.customer_name ? quote.customer_name : 'Walk-in';
+      a.download = `Quotation - ${namePart}${projPart}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      window.open(pdfUrl, '_blank');
+      window.open(quote.pdf_url, '_blank');
     }
   };
 
@@ -254,7 +256,7 @@ export default function History({ setActiveTab }) {
                             <Copy className="w-4 h-4" />
                           </button>
                           {quote.pdf_url && (
-                            <button onClick={() => handleDownloadPdf(quote.pdf_url, quote.id)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="Download PDF">
+                            <button onClick={() => handleDownloadPdf(quote)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="Download PDF">
                               <FileText className="w-4 h-4" />
                             </button>
                           )}
