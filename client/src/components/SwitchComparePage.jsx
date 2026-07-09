@@ -165,6 +165,11 @@ export default function SwitchComparePage() {
 
   return (
     <div className="flex flex-col h-full print:h-auto print:block overflow-y-auto print:overflow-visible bg-gray-50 p-4 print:p-0 print:bg-white">
+      <style>{`
+        @media print {
+          .no-print-price { display: none !important; }
+        }
+      `}</style>
       <div className="flex justify-between items-center mb-4 shrink-0 print:hidden">
         <h2 className="text-xl font-bold text-gray-800">Compare Switch Pricing</h2>
         <button onClick={() => window.print()} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition-colors">
@@ -307,11 +312,11 @@ export default function SwitchComparePage() {
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-800">{cartItem.name}</div>
                             {match ? (
-                              <div className="text-xs text-gray-500 print:hidden">
+                              <div className="text-xs text-gray-500 no-print-price print:hidden">
                                 ₹{basePrice} each
                               </div>
                             ) : (
-                              <div className="text-xs text-red-500 italic print:hidden">N/A</div>
+                              <div className="text-xs text-red-500 italic no-print-price print:hidden">N/A</div>
                             )}
                           </td>
                           <td className="px-2 py-3 text-center text-gray-600 font-semibold bg-gray-50/50">
@@ -328,9 +333,9 @@ export default function SwitchComparePage() {
               </div>
 
               {/* Grand Total Footer */}
-              <div style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} className="bg-purple-100 text-purple-900 border-t-2 border-purple-500 p-4 text-center shrink-0 rounded-b-xl print:bg-purple-100 print:text-purple-900">
-                <div className="text-purple-700 text-xs font-bold uppercase tracking-wider mb-1">Grand Total</div>
-                <div className="text-2xl font-black">₹{total.toLocaleString()}</div>
+              <div style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} className="bg-purple-100 text-purple-900 border-t-2 border-purple-500 p-4 text-center shrink-0 rounded-b-xl print:bg-purple-200 print:border-purple-800 print:border-4 print:text-purple-900">
+                <div className="text-purple-800 print:text-purple-900 text-xs font-bold uppercase tracking-wider mb-1">Grand Total</div>
+                <div className="text-2xl font-black print:text-purple-950">₹{total.toLocaleString()}</div>
               </div>
             </div>
           );

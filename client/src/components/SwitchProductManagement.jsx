@@ -490,54 +490,21 @@ export default function SwitchProductManagement() {
               <label className="block text-xs font-medium text-gray-700 mb-1">Product Name *</label>
               <input
                 type="text"
+                list="product-names-list"
                 value={nameSearch}
                 onChange={(e) => {
                   setNameSearch(e.target.value);
                   setFormData(prev => ({ ...prev, name: e.target.value }));
-                  setShowNameDropdown(true);
                 }}
-                onFocus={() => setShowNameDropdown(true)}
-                onBlur={() => setTimeout(() => setShowNameDropdown(false), 200)}
                 placeholder="e.g. 1 Way Switch"
                 className="input-field"
                 required
               />
-              {showNameDropdown && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {filteredNames.length > 0 ? (
-                    filteredNames.map(name => (
-                      <div
-                        key={name}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer text-sm"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setNameSearch(name);
-                          setFormData(prev => ({ ...prev, name }));
-                          setShowNameDropdown(false);
-                        }}
-                      >
-                        {name}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-4 py-2 text-sm text-gray-500">No matching products found.</div>
-                  )}
-                  {nameSearch.trim() && !uniqueProductNames.some(n => n.toLowerCase() === nameSearch.trim().toLowerCase()) && (
-                    <div
-                      className="px-4 py-2 bg-purple-50 hover:bg-purple-100 cursor-pointer text-sm font-medium text-purple-700 flex items-center gap-2 border-t border-purple-100"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const newName = nameSearch.trim();
-                        setNameSearch(newName);
-                        setFormData(prev => ({ ...prev, name: newName }));
-                        setShowNameDropdown(false);
-                      }}
-                    >
-                      <Plus className="w-4 h-4" /> Add "{nameSearch.trim()}" as new product
-                    </div>
-                  )}
-                </div>
-              )}
+              <datalist id="product-names-list">
+                {uniqueProductNames.map(name => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
             </div>
 
             <div>
