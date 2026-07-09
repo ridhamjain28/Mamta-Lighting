@@ -6,8 +6,9 @@ import { Loader2, Printer } from 'lucide-react';
 import { getProductRank } from '../utils/productStandardizer';
 
 export default function SwitchComparePage() {
-  const { items, switchCompareColumns: columns, setSwitchCompareColumns: setColumns } = useQuoteStore();
+  const { items, switchCompareColumns: columns, setSwitchCompareColumns: setColumns, customer } = useQuoteStore();
   const addToast = useToastStore((s) => s.addToast);
+  const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
   
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState([]);
@@ -170,6 +171,39 @@ export default function SwitchComparePage() {
           <Printer className="w-4 h-4" /> Save as PDF
         </button>
       </div>
+
+      {/* --- PRINT HEADER --- */}
+      <div className="hidden print:block w-full">
+        {/* Company Header */}
+        <div className="flex justify-between items-start mb-6">
+          <div></div>
+          <div className="text-right">
+            <img src="/mamta.png" alt="Mamta Logo" className="w-[250px] inline-block mb-1" onError={(e) => e.target.style.display = 'none'} />
+            <h2 className="text-xl font-bold text-blue-600 hidden" id="logo-fallback">MAMTA</h2>
+            <div className="text-[11px] leading-relaxed text-gray-700">
+              12, Kashyap Chambers, Opp. Mudit Palace,<br />
+              Station Road, Bardoli - 394601
+            </div>
+          </div>
+        </div>
+
+        {/* Customer & Quote Metadata */}
+        <div className="flex justify-between items-start border-t border-b border-gray-200 py-3 mb-6 text-sm font-semibold">
+          <div className="space-y-1">
+            <div>To: {customer?.name || 'N/A'}</div>
+            <div>Phone: {customer?.phone || 'N/A'}</div>
+            {customer?.project && <div>Project: {customer.project}</div>}
+          </div>
+          <div className="text-right space-y-1">
+            <div>Date: {dateStr}</div>
+            <div>Type: Switch Quote Comparison</div>
+          </div>
+        </div>
+
+        {/* Quotation Title */}
+        <h3 className="text-center text-xl font-bold underline mb-6 tracking-wide">COMPARISON</h3>
+      </div>
+      {/* --- END PRINT HEADER --- */}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 print:grid-cols-3 gap-6 print:gap-2 flex-1 min-h-0 print:overflow-visible">
         {[0, 1, 2].map(colIndex => {
@@ -274,7 +308,7 @@ export default function SwitchComparePage() {
                             <div className="font-medium text-gray-800">{cartItem.name}</div>
                             {match ? (
                               <div className="text-xs text-gray-500">
-                                ₹{basePrice} {discPercent > 0 ? `(-${discPercent}%)` : ''} each
+                                ₹{basePrice} each
                               </div>
                             ) : (
                               <div className="text-xs text-red-500 italic">N/A</div>
@@ -302,6 +336,32 @@ export default function SwitchComparePage() {
           );
         })}
       </div>
+
+      {/* --- PRINT FOOTER --- */}
+      <div className="hidden print:block w-full mt-8">
+        {/* T&C Section */}
+        <div className="text-[11px] leading-relaxed border-t border-gray-100 pt-4">
+          <h4 className="font-bold text-xs mb-1">Terms & Conditions:</h4>
+          <ol className="list-decimal pl-4 space-y-0.5">
+            <li>Prices are subject to change without prior notice.</li>
+            <li>Goods once sold will not be taken back.</li>
+            <li>Delivery subject to stock availability.</li>
+            <li>The quotation is only valid till 3 days from the date provided.</li>
+            <li>This is inclusive of all the charges (GST, Freight Charges if any).</li>
+          </ol>
+          <div className="text-center font-bold text-xs mt-4">Looking Forward To Your Valuable Order!</div>
+        </div>
+
+        {/* Repeating Brands Footer (at bottom of sheet) */}
+        <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center opacity-85 page-break-inside-avoid">
+          <img src="/havells.png" alt="Havells" className="h-[24px] object-contain" />
+          <img src="/norisys.png" alt="Norisys" className="h-[32px] object-contain" />
+          <img src="/beton.png" alt="Beton" className="h-[24px] object-contain" />
+          <img src="/crabtree.png" alt="Crabtree" className="h-[24px] object-contain" />
+          <img src="/finolex.png" alt="Finolex" className="h-[18px] object-contain" />
+        </div>
+      </div>
+      {/* --- END PRINT FOOTER --- */}
     </div>
   );
 }
