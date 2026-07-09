@@ -307,11 +307,11 @@ export default function SwitchComparePage() {
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-800">{cartItem.name}</div>
                             {match ? (
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500 print:hidden">
                                 ₹{basePrice} each
                               </div>
                             ) : (
-                              <div className="text-xs text-red-500 italic">N/A</div>
+                              <div className="text-xs text-red-500 italic print:hidden">N/A</div>
                             )}
                           </td>
                           <td className="px-2 py-3 text-center text-gray-600 font-semibold bg-gray-50/50">
@@ -328,9 +328,9 @@ export default function SwitchComparePage() {
               </div>
 
               {/* Grand Total Footer */}
-              <div className="bg-gray-900 text-white p-4 text-center shrink-0">
-                <div className="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-1">Grand Total</div>
-                <div className="text-2xl font-bold">₹{total.toLocaleString()}</div>
+              <div style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} className="bg-purple-100 text-purple-900 border-t-2 border-purple-500 p-4 text-center shrink-0 rounded-b-xl print:bg-purple-100 print:text-purple-900">
+                <div className="text-purple-700 text-xs font-bold uppercase tracking-wider mb-1">Grand Total</div>
+                <div className="text-2xl font-black">₹{total.toLocaleString()}</div>
               </div>
             </div>
           );

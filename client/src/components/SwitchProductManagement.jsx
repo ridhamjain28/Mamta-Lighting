@@ -69,7 +69,12 @@ export default function SwitchProductManagement() {
 
   const uniqueProductNames = useMemo(() => {
     const names = new Set(products.map(p => p.name));
-    return Array.from(names).sort();
+    return Array.from(names).sort((a, b) => {
+      const rankA = getProductRank(a);
+      const rankB = getProductRank(b);
+      if (rankA !== rankB) return rankA - rankB;
+      return a.localeCompare(b);
+    });
   }, [products]);
 
   const filteredNames = uniqueProductNames.filter(name => 
