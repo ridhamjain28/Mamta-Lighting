@@ -125,6 +125,7 @@ export default function SwitchQuotePage() {
     const currentItems = store.items;
     let hasChanges = false;
     const newItems = [...currentItems];
+    const removedItems = [];
 
     for (let i = 0; i < newItems.length; i++) {
       const item = newItems[i];
@@ -148,13 +149,20 @@ export default function SwitchQuotePage() {
             custom_price_override: null, // Reset manual price to use new variant's base price
             discount_override: item.discount_override,
           };
+        } else {
+          removedItems.push(item.name);
+          newItems[i] = null;
+          hasChanges = true;
         }
       }
     }
 
     if (hasChanges) {
-      useQuoteStore.setState({ items: newItems });
+      useQuoteStore.setState({ items: newItems.filter(Boolean) });
       setLocalInputs({}); // Clear typing state so new base prices show up
+      if (removedItems.length > 0) {
+        addToast(`Removed items not available in this variant: ${removedItems.join(', ')}`, 'warning');
+      }
     }
   }, [visibleProducts, selectedBrandId, selectedSubBrand, selectedColor]);
 
