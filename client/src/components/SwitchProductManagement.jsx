@@ -496,21 +496,40 @@ export default function SwitchProductManagement() {
                 className="input-field"
                 required
               />
-              {showNameDropdown && filteredNames.length > 0 && (
+              {showNameDropdown && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {filteredNames.map(name => (
+                  {filteredNames.length > 0 ? (
+                    filteredNames.map(name => (
+                      <div
+                        key={name}
+                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer text-sm"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setNameSearch(name);
+                          setFormData(prev => ({ ...prev, name }));
+                          setShowNameDropdown(false);
+                        }}
+                      >
+                        {name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500">No matching products found.</div>
+                  )}
+                  {nameSearch.trim() && !uniqueProductNames.some(n => n.toLowerCase() === nameSearch.trim().toLowerCase()) && (
                     <div
-                      key={name}
-                      className="px-4 py-2 hover:bg-purple-50 cursor-pointer text-sm"
-                      onClick={() => {
-                        setNameSearch(name);
-                        setFormData(prev => ({ ...prev, name }));
+                      className="px-4 py-2 bg-purple-50 hover:bg-purple-100 cursor-pointer text-sm font-medium text-purple-700 flex items-center gap-2 border-t border-purple-100"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const newName = nameSearch.trim();
+                        setNameSearch(newName);
+                        setFormData(prev => ({ ...prev, name: newName }));
                         setShowNameDropdown(false);
                       }}
                     >
-                      {name}
+                      <Plus className="w-4 h-4" /> Add "{nameSearch.trim()}" as new product
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>

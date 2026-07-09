@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 import { supabase } from '../supabase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Printer } from 'lucide-react';
 import { getProductRank } from '../utils/productStandardizer';
 
 export default function SwitchComparePage() {
@@ -163,10 +163,15 @@ export default function SwitchComparePage() {
   const allBrands = getBrands();
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-4">
-      <h2 className="text-xl font-bold text-gray-800 mb-4 shrink-0">Compare Switch Pricing</h2>
+    <div className="flex flex-col h-full print:h-auto print:block overflow-y-auto print:overflow-visible bg-gray-50 p-4 print:p-0 print:bg-white">
+      <div className="flex justify-between items-center mb-4 shrink-0 print:hidden">
+        <h2 className="text-xl font-bold text-gray-800">Compare Switch Pricing</h2>
+        <button onClick={() => window.print()} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition-colors">
+          <Printer className="w-4 h-4" /> Save as PDF
+        </button>
+      </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 print:grid-cols-3 gap-6 print:gap-2 flex-1 min-h-0 print:overflow-visible">
         {[0, 1, 2].map(colIndex => {
           const colState = columns[colIndex];
           const colSubBrands = getSubBrands(colState.brandId);
@@ -181,9 +186,9 @@ export default function SwitchComparePage() {
           const total = calculateColumnTotal(colState);
 
           return (
-            <div key={colIndex} className="bg-white rounded-xl shadow-md border border-gray-200 flex flex-col h-full overflow-hidden min-h-[500px]">
+            <div key={colIndex} className="bg-white rounded-xl shadow-md border border-gray-200 flex flex-col h-full print:h-auto overflow-hidden min-h-[500px] print:min-h-0 print:shadow-none">
               {/* Variant Selector */}
-              <div className="p-4 bg-purple-50 border-b border-purple-100 flex flex-col gap-3 shrink-0">
+              <div className="p-4 bg-purple-50 border-b border-purple-100 flex flex-col gap-3 shrink-0 print:bg-white print:border-gray-300">
                 <div className="font-bold text-purple-900 text-sm tracking-wide">VARIANT {colIndex + 1}</div>
                 <select
                   className="input-field py-2 text-sm bg-white"
@@ -220,7 +225,7 @@ export default function SwitchComparePage() {
               </div>
               
               {/* Settings: Discount and GST */}
-              <div className="p-3 bg-white border-b border-gray-100 flex flex-col gap-2 shrink-0">
+              <div className="p-3 bg-white border-b border-gray-100 flex flex-col gap-2 shrink-0 print:hidden">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-gray-700">Discount (%)</span>
                   <input 
@@ -246,7 +251,7 @@ export default function SwitchComparePage() {
               </div>
 
               {/* Itemized List */}
-              <div className="flex-1 overflow-y-auto p-0 min-h-0">
+              <div className="flex-1 overflow-y-auto print:overflow-visible p-0 min-h-0">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-gray-100 sticky top-0 z-10 shadow-sm">
                     <tr>
