@@ -354,11 +354,11 @@ export default function SwitchComparePage() {
 
         {/* Repeating Brands Footer (at bottom of sheet) */}
         <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center opacity-85 page-break-inside-avoid">
-          <img src="/havells.png" alt="Havells" className="h-[24px] object-contain" />
-          <img src="/norisys.png" alt="Norisys" className="h-[32px] object-contain" />
-          <img src="/beton.png" alt="Beton" className="h-[24px] object-contain" />
-          <img src="/crabtree.png" alt="Crabtree" className="h-[24px] object-contain" />
-          <img src="/finolex.png" alt="Finolex" className="h-[18px] object-contain" />
+          <img src="/havells.png" alt="Havells" className="h-[40px] object-contain" />
+          <img src="/norisys.png" alt="Norisys" className="h-[50px] object-contain" />
+          <img src="/beton.png" alt="Beton" className="h-[40px] object-contain" />
+          <img src="/crabtree.png" alt="Crabtree" className="h-[40px] object-contain" />
+          <img src="/finolex.png" alt="Finolex" className="h-[32px] object-contain" />
         </div>
       </div>
       {/* --- END PRINT FOOTER --- */}

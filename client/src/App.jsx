@@ -124,7 +124,7 @@ function App() {
     <div className="min-h-screen bg-gray-100 flex flex-col overflow-hidden">
       
       {/* Top Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 z-30 shadow-sm relative">
+      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 z-30 shadow-sm relative print:hidden">
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg text-white ${isImageSystem ? 'bg-blue-600' : isSwitchSystem ? 'bg-purple-600' : 'bg-green-600'}`}>
             {isImageSystem ? <PackageSearch className="w-6 h-6" /> : isSwitchSystem ? <ToggleLeft className="w-6 h-6" /> : <Zap className="w-6 h-6" />}
