@@ -83,11 +83,21 @@ export default function QuoteSummary() {
         })
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to generate PDF');
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch(e) {
+          errorData = { error: 'Failed to generate PDF' };
+        }
+        throw new Error(errorData.error || 'Failed to generate PDF');
+      }
 
-      // Update the DB with Completed status and PDF URL
-      await saveQuoteToDatabase('Completed', data.pdfUrl);
+      const pdfBlob = await response.blob();
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+
+      // Update the DB with Completed status (without PDF URL)
+      await saveQuoteToDatabase('Completed');
 
       try {
         const projPart = customer.project ? ` - ${customer.project}` : '';
@@ -106,20 +116,19 @@ export default function QuoteSummary() {
         }
         
         const fileName = `Quotation - ${namePart}${projPart}${brandPart}.pdf`;
-        const downloadUrl = `${data.pdfUrl}?download=${encodeURIComponent(fileName)}`;
         
         const a = document.createElement('a');
-        a.href = downloadUrl;
+        a.href = pdfUrl;
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
         a.remove();
       } catch (dlError) {
         console.error("Direct download failed:", dlError);
-        window.open(data.pdfUrl, '_blank');
+        window.open(pdfUrl, '_blank');
       }
 
-      setSuccessData({ pdfUrl: data.pdfUrl });
+      setSuccessData({ pdfUrl });
     } catch (error) {
       console.error(error);
       addToast("Error generating quotation: " + error.message, "error");
@@ -151,7 +160,7 @@ export default function QuoteSummary() {
                 const projPart = customer.project ? ` - ${customer.project}` : '';
                 const namePart = customer.name ? customer.name : 'Walk-in';
                 const fileName = `Quotation - ${namePart}${projPart}.pdf`;
-                const downloadUrl = `${successData.pdfUrl}?download=${encodeURIComponent(fileName)}`;
+                const downloadUrl = successData.pdfUrl;
                 
                 const a = document.createElement('a');
                 a.href = downloadUrl;

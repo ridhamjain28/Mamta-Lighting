@@ -104,6 +104,61 @@ app.post('/api/quotation', async (req, res) => {
       quote_type
     } = req.body;
 
+    const escapeHTML = (str) => {
+      if (typeof str !== 'string') return str;
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+      );
+    };
+
+    const safe_customer_name = escapeHTML(customer_name);
+    const safe_phone_number = escapeHTML(phone_number);
+    const safe_project_name = escapeHTML(project_name);
+
+    // Strict math validation
+    let serverSubtotal = 0;
+    const validatedItems = items.map(item => {
+      const customOverride = (item.custom_price_override !== null && item.custom_price_override !== undefined && item.custom_price_override !== '') 
+        ? Number(item.custom_price_override) 
+        : Number(item.base_price || 0);
+      const discountPercentage = Number(item.discount_override || 0);
+      const netPrice = customOverride - (customOverride * (discountPercentage / 100));
+      const quantity = Number(item.quantity || 0);
+      const total = netPrice * quantity;
+      
+      serverSubtotal += total;
+      
+      return { 
+        ...item, 
+        serverNetPrice: netPrice, 
+        serverTotal: total, 
+        serverCustomOverride: customOverride,
+        safe_name: escapeHTML(item.name),
+        safe_model: escapeHTML(item.model_number),
+        safe_brand: escapeHTML(item.brands?.name)
+      };
+    });
+
+    if (Math.abs(serverSubtotal - subtotal) > 0.1) {
+       return res.status(400).json({ error: 'Math verification failed: Subtotal mismatch.' });
+    }
+
+    let serverGst = gst_included ? serverSubtotal * 0.18 : 0;
+    if (gst_included && Math.abs(serverGst - (gst_amount || 0)) > 0.1) {
+       return res.status(400).json({ error: 'Math verification failed: GST mismatch.' });
+    }
+
+    let serverGrandTotal = Math.round(serverSubtotal + serverGst);
+    if (Math.abs(serverGrandTotal - grand_total) > 0.1) {
+       return res.status(400).json({ error: 'Math verification failed: Grand total mismatch.' });
+    }
+
     const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
     const quoteNumber = `MAMTA-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
@@ -137,27 +192,27 @@ app.post('/api/quotation', async (req, res) => {
     const isImageQuote = quote_type === 'Image Quote';
 
     let switchBrandStr = 'Switch';
-    if (quote_type === 'Switch Quote' && items && items.length > 0) {
-      const firstSwitch = items.find(i => i.product_type === 'Switch Product' || i.product_type === 'Manual Product');
+    if (quote_type === 'Switch Quote' && validatedItems && validatedItems.length > 0) {
+      const firstSwitch = validatedItems.find(i => i.product_type === 'Switch Product' || i.product_type === 'Manual Product');
       if (firstSwitch) {
-        const brandName = firstSwitch.brands?.name || '';
-        const subBrand = firstSwitch.sub_brand || '';
-        const color = firstSwitch.color || '';
+        const brandName = firstSwitch.safe_brand || '';
+        const subBrand = escapeHTML(firstSwitch.sub_brand) || '';
+        const color = escapeHTML(firstSwitch.color) || '';
         switchBrandStr = `${brandName} ${subBrand} ${color}`.trim() || 'Switch';
       }
     }
 
-    const itemsHtml = itemsWithBase64Images.map((item, index) => {
-      const listPrice = item.base_price || 0;
-      const customOverride = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
-      const discountPercentage = item.discount_override || 0;
-      const netPrice = customOverride - (customOverride * (discountPercentage / 100));
-      const total = netPrice * item.quantity;
+    const itemsHtml = validatedItems.map((item, index) => {
+      const listPrice = Number(item.base_price || 0);
+      const customOverride = item.serverCustomOverride;
+      const discountPercentage = Number(item.discount_override || 0);
+      const netPrice = item.serverNetPrice;
+      const total = item.serverTotal;
       
-      const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
-      const baseDisplayName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
-      const displayProductName = (isImageQuote && item.brands?.name) ? `${baseDisplayName} - ${item.brands.name}` : baseDisplayName;
-      const unit = item.unit_type || 'N';
+      const productName = item.safe_model ? `${item.safe_name} - ${item.safe_model}` : item.safe_name;
+      const baseDisplayName = item.selected_wattage ? `${productName} (${escapeHTML(item.selected_wattage)})` : productName;
+      const displayProductName = (isImageQuote && item.safe_brand) ? `${baseDisplayName} - ${item.safe_brand}` : baseDisplayName;
+      const unit = escapeHTML(item.unit_type) || 'N';
       const isUnitN = unit === 'N';
       const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
       const formattedRate = isUnitN ? `${customOverride.toFixed(2)} each` : `${customOverride.toFixed(2)} / ${unit}`;
@@ -234,8 +289,8 @@ app.post('/api/quotation', async (req, res) => {
     `;
 
     // Exact layout based on the user's provided PDF
-    const projPart = project_name ? ` - ${project_name}` : '';
-    const namePart = customer_name ? customer_name : 'Walk-in';
+    const projPart = safe_project_name ? ` - ${safe_project_name}` : '';
+    const namePart = safe_customer_name ? safe_customer_name : 'Walk-in';
     const documentTitle = `Quotation - ${namePart}${projPart}`;
 
     const htmlContent = `
@@ -280,8 +335,8 @@ app.post('/api/quotation', async (req, res) => {
 
         <div class="customer-info">
           <div class="customer-info-left">
-            To: ${customer_name || 'N/A'}<br>
-            Phone: ${phone_number || 'N/A'}
+            To: ${safe_customer_name || 'N/A'}<br>
+            Phone: ${safe_phone_number || 'N/A'}
           </div>
           <div class="customer-info-right">
             Date: ${dateStr}<br>
@@ -395,7 +450,7 @@ app.post('/api/quotation', async (req, res) => {
         </table>
 
         <!-- Terms and conditions -->
-        <div style="margin-top: 15px; padding-bottom: 0px;">
+        <div style="margin-top: 15px; padding-bottom: 0px; page-break-inside: avoid;">
           <div style="font-size: 11px; line-height: 1.5; margin-bottom: 10px;">
             <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms & Conditions:</h4>
             <ol style="padding-left: 20px; margin: 0;">
@@ -452,21 +507,12 @@ app.post('/api/quotation', async (req, res) => {
     });
     await browser.close();
 
-    // Upload PDF
+    // Return PDF directly
     const fileName = `${quoteNumber}-${Date.now()}.pdf`;
-    const { error: uploadError } = await supabase.storage
-      .from('quotations')
-      .upload(fileName, pdfBuffer, { contentType: 'application/pdf', upsert: false });
-
-    if (uploadError) throw uploadError;
-
-    const { data: publicUrlData } = supabase.storage
-      .from('quotations')
-      .getPublicUrl(fileName);
-      
-    const pdfUrl = publicUrlData.publicUrl;
-
-    res.json({ success: true, pdfUrl });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('X-Filename', fileName);
+    res.send(pdfBuffer);
 
   } catch (error) {
     console.error('Quotation Generation Error:', error);

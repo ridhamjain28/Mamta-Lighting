@@ -90,7 +90,7 @@ export const useQuoteStore = create((set, get) => ({
       return { 
         items: state.items.map(item => {
           const itemCompositeId = item.selected_wattage ? `${item.id}-${item.selected_wattage}` : item.id;
-          return itemCompositeId === compositeId ? { ...item, quantity: item.quantity + 1 } : item;
+          return itemCompositeId === compositeId ? { ...item, quantity: item.quantity + (product.quantity ?? 1) } : item;
         }) 
       };
     }
@@ -98,9 +98,9 @@ export const useQuoteStore = create((set, get) => ({
       items: [...state.items, { 
         ...product, 
         cartItemId: compositeId, // We can store a unique cart item ID
-        quantity: 1, 
-        discount_override: '', 
-        custom_price_override: product.base_price 
+        quantity: product.quantity ?? 1, 
+        discount_override: product.discount_override ?? '', 
+        custom_price_override: product.custom_price_override ?? product.base_price 
       }] 
     };
   }),
@@ -132,7 +132,7 @@ export const useQuoteStore = create((set, get) => ({
     
     const subtotal = items.reduce((acc, item) => {
       let price = item.custom_price_override;
-      if (price === null || price === undefined || price === '' || Number(price) <= 0) {
+      if (price === null || price === undefined || price === '') {
         price = item.base_price;
       } else {
         price = Number(price);
@@ -169,6 +169,12 @@ export const useQuoteStore = create((set, get) => ({
     }
 
     const activeItems = items.filter(item => Number(item.quantity) > 0);
+    
+    if (activeItems.length === 0) {
+      useToastStore.getState().addToast("Cart has no items with a quantity > 0", "error");
+      return null;
+    }
+    
     const { subtotal, discount_amount, gst_amount, grand_total } = getTotals();
 
     const payload = {
@@ -215,7 +221,7 @@ export const useQuoteStore = create((set, get) => ({
       if (activeItems.length > 0) {
         const itemsPayload = activeItems.map(item => {
           let itemPrice = item.custom_price_override;
-          if (itemPrice === null || itemPrice === undefined || itemPrice === '' || Number(itemPrice) <= 0) {
+          if (itemPrice === null || itemPrice === undefined || itemPrice === '') {
             itemPrice = item.base_price;
           } else {
             itemPrice = Number(itemPrice);

@@ -142,13 +142,22 @@ export default function SwitchQuotePage() {
         
         if (matchingNewProduct) {
           hasChanges = true;
-          newItems[i] = {
-            ...matchingNewProduct,
-            cartItemId: matchingNewProduct.id,
-            quantity: item.quantity,
-            custom_price_override: null, // Reset manual price to use new variant's base price
-            discount_override: item.discount_override,
-          };
+          // Check if this new product is already in our migrated newItems list (from earlier iterations)
+          const existingMigratedIndex = newItems.findIndex((it, idx) => idx < i && it && it.cartItemId === matchingNewProduct.id);
+          
+          if (existingMigratedIndex !== -1) {
+            // Aggregate quantity instead of creating a duplicate
+            newItems[existingMigratedIndex].quantity += item.quantity;
+            newItems[i] = null;
+          } else {
+            newItems[i] = {
+              ...matchingNewProduct,
+              cartItemId: matchingNewProduct.id,
+              quantity: item.quantity,
+              custom_price_override: null, // Reset manual price to use new variant's base price
+              discount_override: item.discount_override,
+            };
+          }
         } else {
           removedItems.push(item.name);
           newItems[i] = null;
@@ -210,14 +219,6 @@ export default function SwitchQuotePage() {
           custom_price_override: newPrice,
           discount_override: newDisc,
         });
-        setTimeout(() => {
-          const fresh = useQuoteStore.getState().items.find(it => it.id === product.id);
-          if (fresh) {
-            if (newQty !== 1) updateItemQuantity(fresh.cartItemId, newQty);
-            updateItemPrice(fresh.cartItemId, newPrice);
-            if (newDisc !== '') updateItemDiscount(fresh.cartItemId, newDisc);
-          }
-        }, 0);
       } else {
         updateItemQuantity(existingItem.cartItemId, newQty);
         updateItemPrice(existingItem.cartItemId, newPrice);
@@ -309,7 +310,7 @@ export default function SwitchQuotePage() {
                       const qty = cartItem ? cartItem.quantity : 0;
                       
                       const override = cartItem ? cartItem.custom_price_override : null;
-                      const manualPrice = (override !== null && override > 0) ? override : product.base_price;
+                      const manualPrice = (override !== null && override !== undefined && override !== '') ? override : product.base_price;
                       
                       const disc = cartItem ? (cartItem.discount_override ?? '') : '';
                       const active = qty > 0;

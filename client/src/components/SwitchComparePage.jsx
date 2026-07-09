@@ -202,9 +202,9 @@ export default function SwitchComparePage() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 shrink-0 print:hidden">
-        <input type="text" value={customer?.name || ''} onChange={(e) => setCustomer('name', e.target.value)} placeholder="Customer Name" className="input-field py-2 text-sm bg-white" />
-        <input type="text" value={customer?.phone || ''} onChange={(e) => setCustomer('phone', e.target.value)} placeholder="Phone Number" className="input-field py-2 text-sm bg-white" />
-        <input type="text" value={customer?.project || ''} onChange={(e) => setCustomer('project', e.target.value)} placeholder="Project Name" className="input-field py-2 text-sm bg-white" />
+        <input type="text" value={customer?.name || ''} onChange={(e) => setCustomer('name', e.target.value)} placeholder="Customer Name *" className="input-field py-2 text-sm bg-white border-gray-300 shadow-sm" />
+        <input type="text" value={customer?.phone || ''} onChange={(e) => setCustomer('phone', e.target.value)} placeholder="Phone Number" className="input-field py-2 text-sm bg-white border-gray-300 shadow-sm" />
+        <input type="text" value={customer?.project || ''} onChange={(e) => setCustomer('project', e.target.value)} placeholder="Project Name" className="input-field py-2 text-sm bg-white border-gray-300 shadow-sm" />
       </div>
 
       {/* --- PRINT HEADER --- */}
@@ -240,7 +240,7 @@ export default function SwitchComparePage() {
       </div>
       {/* --- END PRINT HEADER --- */}
       
-      <div className={`grid grid-cols-1 lg:grid-cols-3 ${columns.filter(c => c.brandId).length === 1 ? 'print:grid-cols-1' : columns.filter(c => c.brandId).length === 2 ? 'print:grid-cols-2' : 'print:grid-cols-3'} gap-6 print:gap-1 flex-1 min-h-0 print:overflow-visible`}>
+      <div className={`grid grid-cols-1 lg:grid-cols-3 ${columns.filter(c => c.brandId).length === 1 ? 'print:grid-cols-1' : columns.filter(c => c.brandId).length === 2 ? 'print:grid-cols-2' : 'print:grid-cols-3'} gap-6 print:gap-2 flex-1 min-h-0 print:overflow-visible print:w-full print:max-w-[100%] mx-auto`}>
         {[0, 1, 2].map(colIndex => {
           const colState = columns[colIndex];
           const colSubBrands = getSubBrands(colState.brandId);
@@ -320,8 +320,8 @@ export default function SwitchComparePage() {
               </div>
 
               {/* Itemized List */}
-              <div className="flex-1 overflow-y-auto print:overflow-visible p-0 min-h-0">
-                <table className="w-full text-sm text-left print:text-[11px] print:border-collapse">
+              <div className="flex-1 overflow-y-auto print:overflow-visible p-0 min-h-0 w-full print:w-full">
+                <table className="w-full text-sm text-left print:text-[10px] print:border-collapse table-fixed">
                   <thead className="bg-gray-100 sticky top-0 z-10 shadow-sm print:bg-white">
                     <tr className="print:border-b-2 print:border-black">
                       <th className="px-4 py-2 font-semibold text-gray-600 print:text-black print:px-2 print:border-r print:border-black">Product</th>
@@ -388,12 +388,12 @@ export default function SwitchComparePage() {
         </div>
 
         {/* Brands Footer */}
-        <div className="w-full mt-8 pt-4 border-t border-gray-200 flex justify-between items-center opacity-85" style={{ pageBreakInside: 'avoid' }}>
-          <img src="/havells.png" alt="Havells" className="h-[40px] object-contain" />
-          <img src="/norisys.png" alt="Norisys" className="h-[50px] object-contain" />
-          <img src="/beton.png" alt="Beton" className="h-[40px] object-contain" />
-          <img src="/crabtree.png" alt="Crabtree" className="h-[40px] object-contain" />
-          <img src="/finolex.png" alt="Finolex" className="h-[32px] object-contain" />
+        <div className="w-full mt-6 pt-4 border-t border-gray-200 flex justify-between items-center print:opacity-100" style={{ pageBreakInside: 'avoid', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+          <img src="/havells.png" alt="Havells" className="h-[30px] print:h-[25px] object-contain" onError={(e) => e.target.style.display = 'none'} />
+          <img src="/norisys.png" alt="Norisys" className="h-[40px] print:h-[30px] object-contain" onError={(e) => e.target.style.display = 'none'} />
+          <img src="/beton.png" alt="Beton" className="h-[30px] print:h-[25px] object-contain" onError={(e) => e.target.style.display = 'none'} />
+          <img src="/crabtree.png" alt="Crabtree" className="h-[30px] print:h-[25px] object-contain" onError={(e) => e.target.style.display = 'none'} />
+          <img src="/finolex.png" alt="Finolex" className="h-[24px] print:h-[20px] object-contain" onError={(e) => e.target.style.display = 'none'} />
         </div>
       </div>
       {/* --- END PRINT FOOTER --- */}

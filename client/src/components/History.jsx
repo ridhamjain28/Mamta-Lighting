@@ -119,8 +119,8 @@ export default function History({ setActiveTab }) {
       ...qi.products,
       cartItemId: qi.products.selected_wattage ? `${qi.products.id}-${qi.products.selected_wattage}` : qi.products.id,
       quantity: qi.quantity,
-      discount_override: qi.discount_override,
-      custom_price_override: qi.custom_price_override
+      discount_override: '',
+      custom_price_override: null
     }));
   };
 
@@ -173,21 +173,70 @@ export default function History({ setActiveTab }) {
     }
   };
 
+  const [generatingPdfId, setGeneratingPdfId] = useState(null);
+
   const handleDownloadPdf = async (quote) => {
     try {
       const projPart = quote.project_name ? ` - ${quote.project_name}` : '';
       const namePart = quote.customer_name ? quote.customer_name : 'Walk-in';
       const fileName = `Quotation - ${namePart}${projPart}.pdf`;
-      const downloadUrl = `${quote.pdf_url}?download=${encodeURIComponent(fileName)}`;
       
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      if (quote.pdf_url) {
+        const downloadUrl = `${quote.pdf_url}?download=${encodeURIComponent(fileName)}`;
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        // Regenerate on the fly
+        setGeneratingPdfId(quote.id);
+        const mappedItems = mapQuotationItems(quote);
+        
+        const payload = {
+          customer_name: quote.customer_name,
+          phone_number: quote.phone_number,
+          project_name: quote.project_name,
+          items: mappedItems,
+          subtotal: quote.subtotal,
+          discount_amount: quote.total_discount,
+          gst_amount: quote.tax_amount,
+          grand_total: quote.grand_total,
+          gst_included: quote.gst_included || false,
+          hide_list_price: quote.hide_list_price || false,
+          quote_type: quote.quote_type || 'Image Quote',
+          quote_id: quote.id
+        };
+
+        const response = await fetch(import.meta.env.VITE_API_URL + '/api/quotation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+           throw new Error('Failed to generate PDF on the fly');
+        }
+
+        const pdfBlob = await response.blob();
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
     } catch (err) {
-      window.open(quote.pdf_url, '_blank');
+      console.error(err);
+      addToast("Failed to download PDF.", "error");
+      if (quote.pdf_url) {
+        window.open(quote.pdf_url, '_blank');
+      }
+    } finally {
+      setGeneratingPdfId(null);
     }
   };
 
@@ -226,7 +275,7 @@ export default function History({ setActiveTab }) {
               onClick={() => setDeleteAllConfirm(true)}
               className="px-4 py-2 rounded-md font-medium text-sm border transition-colors whitespace-nowrap bg-red-600 text-white border-red-600 hover:bg-red-700"
             >
-              Empty Trash
+              Delete All
             </button>
           )}
           <div className="relative w-full md:w-64">
@@ -296,11 +345,9 @@ export default function History({ setActiveTab }) {
                           <button onClick={() => handleDuplicate(quote)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-md transition-colors" title="Duplicate">
                             <Copy className="w-4 h-4" />
                           </button>
-                          {quote.pdf_url && (
-                            <button onClick={() => handleDownloadPdf(quote)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="Download PDF">
-                              <FileText className="w-4 h-4" />
-                            </button>
-                          )}
+                          <button onClick={() => handleDownloadPdf(quote)} disabled={generatingPdfId === quote.id} className={`p-1.5 rounded-md transition-colors ${generatingPdfId === quote.id ? 'text-gray-400 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50'}`} title="Download PDF">
+                            <FileText className="w-4 h-4" />
+                          </button>
                           <button onClick={() => handleSoftDelete(quote.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Move to Trash">
                             <Trash2 className="w-4 h-4" />
                           </button>
