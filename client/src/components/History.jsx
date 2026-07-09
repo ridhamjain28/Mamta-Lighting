@@ -134,7 +134,11 @@ export default function History({ setActiveTab }) {
     setCustomer('phone', quote.phone_number || '');
     setCustomer('project', quote.project_name || '');
 
-    setActiveTab('new-quote');
+    if (quote.quote_type === 'Comparison') {
+      setActiveTab('compare');
+    } else {
+      setActiveTab('new-quote');
+    }
   };
 
   const handleDuplicate = (quote) => {
@@ -155,7 +159,11 @@ export default function History({ setActiveTab }) {
     setCustomer('project', quote.project_name || '');
 
     addToast("Quotation duplicated. You are now editing a new draft.", "success");
-    setActiveTab('new-quote');
+    if (quote.quote_type === 'Comparison') {
+      setActiveTab('compare');
+    } else {
+      setActiveTab('new-quote');
+    }
   };
 
   const handleDownloadPdf = async (quote) => {

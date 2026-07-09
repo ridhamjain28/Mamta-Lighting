@@ -164,7 +164,7 @@ export default function SwitchComparePage() {
   const allBrands = getBrands();
 
   const handleManualSave = async () => {
-    const saved = await saveQuoteToDatabase('Draft');
+    const saved = await saveQuoteToDatabase('Draft', null, 'Comparison');
     if (saved) {
       addToast("Comparison saved successfully", "success");
     }
@@ -343,7 +343,7 @@ export default function SwitchComparePage() {
                             <div className="font-medium text-gray-800 print:text-black leading-tight">{cartItem.name}</div>
                             {match ? (
                               <div className="text-xs text-gray-500 print:text-gray-700 mt-0.5">
-                                ₹{basePrice} each
+                                ₹{discountedPrice % 1 === 0 ? discountedPrice : discountedPrice.toFixed(2)} each
                               </div>
                             ) : (
                               <div className="text-xs text-red-500 italic mt-0.5">N/A</div>

@@ -156,11 +156,12 @@ export const useQuoteStore = create((set, get) => ({
     };
   },
 
-  saveQuoteToDatabase: async (finalStatus = null, pdfUrl = null) => {
+  saveQuoteToDatabase: async (finalStatus = null, pdfUrl = null, typeOverride = null) => {
     const state = get();
     const { items, customer, getTotals, quoteId, quoteType, status, setQuoteMetadata, globalDiscount, gstIncluded } = state;
     
     const stat = finalStatus || status;
+    const finalQuoteType = typeOverride || quoteType;
 
     if (items.length === 0) {
       useToastStore.getState().addToast("Cart is empty", "error");
@@ -178,7 +179,7 @@ export const useQuoteStore = create((set, get) => ({
       tax_amount: gst_amount,
       total_discount: discount_amount,
       grand_total,
-      quote_type: quoteType,
+      quote_type: finalQuoteType,
       status: stat,
       updated_at: new Date().toISOString()
     };
