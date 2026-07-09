@@ -9,14 +9,25 @@ import { UploadCloud, Loader2, Edit2, Check, X as XIcon } from 'lucide-react';
 export default function SwitchProductManagement() {
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [subBrands, setSubBrands] = useState([]);
+  const [colors, setColors] = useState([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToastStore();
 
   const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
   const [newBrand, setNewBrand] = useState('');
+  
+  const [editingSubBrand, setEditingSubBrand] = useState({ id: null, name: '' });
+  const [newSubBrand, setNewSubBrand] = useState('');
+
+  const [editingColor, setEditingColor] = useState({ id: null, name: '' });
+  const [newColor, setNewColor] = useState('');
+
   const [importLoading, setImportLoading] = useState(false);
   
   const [deleteBrandConfirm, setDeleteBrandConfirm] = useState({ isOpen: false, id: null });
+  const [deleteSubBrandConfirm, setDeleteSubBrandConfirm] = useState({ isOpen: false, id: null });
+  const [deleteColorConfirm, setDeleteColorConfirm] = useState({ isOpen: false, id: null });
   const [deleteProductConfirm, setDeleteProductConfirm] = useState({ isOpen: false, id: null });
 
   const [formData, setFormData] = useState({
@@ -39,6 +50,12 @@ export default function SwitchProductManagement() {
     setLoading(true);
     const { data: brandData } = await supabase.from('brands').select('*').order('name');
     if (brandData) setBrands(brandData);
+
+    const { data: subBrandData } = await supabase.from('sub_brands').select('*').order('name');
+    if (subBrandData) setSubBrands(subBrandData);
+
+    const { data: colorData } = await supabase.from('colors').select('*').order('name');
+    if (colorData) setColors(colorData);
 
     const { data: productData } = await supabase
       .from('products')
@@ -119,6 +136,68 @@ export default function SwitchProductManagement() {
        fetchMetadata();
     }
     setEditingBrand({ id: null, name: '' });
+  };
+
+  const handleAddSubBrand = async () => {
+    if (!newSubBrand.trim()) return;
+    const { data, error } = await supabase.from('sub_brands').insert([{ name: newSubBrand.trim() }]).select();
+    if (!error && data) { 
+      setSubBrands([...subBrands, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); 
+      setNewSubBrand(''); 
+    }
+  };
+
+  const handleDeleteSubBrand = async (id) => {
+    const { error } = await supabase.from('sub_brands').delete().eq('id', id);
+    if (!error) { 
+      setSubBrands(subBrands.filter(b => b.id !== id)); 
+    }
+  };
+
+  const handleUpdateSubBrand = async (id) => {
+    if (!editingSubBrand.name.trim()) return;
+    const { error } = await supabase.from('sub_brands').update({ name: editingSubBrand.name.trim() }).eq('id', id);
+    if (!error) { 
+       setSubBrands(subBrands.map(b => b.id === id ? { ...b, name: editingSubBrand.name.trim() } : b).sort((a,b)=>a.name.localeCompare(b.name))); 
+    }
+    setEditingSubBrand({ id: null, name: '' });
+  };
+
+  const handleAddColor = async () => {
+    if (!newColor.trim()) return;
+    const { data, error } = await supabase.from('colors').insert([{ name: newColor.trim() }]).select();
+    if (!error && data) { 
+      setColors([...colors, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); 
+      setNewColor(''); 
+    }
+  };
+
+  const handleDeleteColor = async (id) => {
+    const { error } = await supabase.from('colors').delete().eq('id', id);
+    if (!error) { 
+      setColors(colors.filter(b => b.id !== id)); 
+    }
+  };
+
+  const handleUpdateColor = async (id) => {
+    if (!editingColor.name.trim()) return;
+    const { error } = await supabase.from('colors').update({ name: editingColor.name.trim() }).eq('id', id);
+    if (!error) { 
+       setColors(colors.map(b => b.id === id ? { ...b, name: editingColor.name.trim() } : b).sort((a,b)=>a.name.localeCompare(b.name))); 
+    }
+    setEditingColor({ id: null, name: '' });
+  };
+
+  const handleQuickAddVariation = (productName) => {
+    setNameSearch(productName);
+    setFormData(prev => ({
+      ...prev,
+      name: productName,
+      sub_brand: '',
+      color: '',
+      base_price: ''
+    }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   async function handleDelete(id) {
@@ -317,27 +396,78 @@ export default function SwitchProductManagement() {
         </div>
       </div>
 
-      {/* Brands Management Section */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Bookmark className="w-5 h-5 text-purple-600"/> Manage Brands</h3>
-        <div className="flex gap-2 mb-4">
-          <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Brand..." value={newBrand} onChange={e => setNewBrand(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddBrand()} />
-          <button onClick={handleAddBrand} className="bg-purple-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors font-medium">Add</button>
-        </div>
-        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-          {brands.map(b => (
-            <div key={b.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-purple-200 transition-colors group">
-              {editingBrand.id === b.id ? (
-                <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingBrand.name} onChange={e => setEditingBrand({...editingBrand, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateBrand(b.id)} onBlur={() => handleUpdateBrand(b.id)} />
-              ) : (
-                <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
-              )}
-              <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => setEditingBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-700 hover:text-purple-600 hover:bg-purple-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
-                <button onClick={() => setDeleteBrandConfirm({ isOpen: true, id: b.id })} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+      {/* Settings Management Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Brands Management Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Bookmark className="w-5 h-5 text-purple-600"/> Manage Brands</h3>
+          <div className="flex gap-2 mb-4">
+            <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Brand..." value={newBrand} onChange={e => setNewBrand(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddBrand()} />
+            <button onClick={handleAddBrand} className="bg-purple-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors font-medium">Add</button>
+          </div>
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+            {brands.map(b => (
+              <div key={b.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-purple-200 transition-colors group">
+                {editingBrand.id === b.id ? (
+                  <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingBrand.name} onChange={e => setEditingBrand({...editingBrand, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateBrand(b.id)} onBlur={() => handleUpdateBrand(b.id)} />
+                ) : (
+                  <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
+                )}
+                <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => setEditingBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-700 hover:text-purple-600 hover:bg-purple-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                  <button type="button" onClick={() => setDeleteBrandConfirm({ isOpen: true, id: b.id })} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        {/* Sub Brands */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Tag className="w-5 h-5 text-purple-600"/> Manage Sub-brands</h3>
+          <div className="flex gap-2 mb-4">
+            <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Sub-brand..." value={newSubBrand} onChange={e => setNewSubBrand(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddSubBrand()} />
+            <button onClick={handleAddSubBrand} className="bg-purple-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors font-medium">Add</button>
+          </div>
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+            {subBrands.map(b => (
+              <div key={b.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-purple-200 transition-colors group">
+                {editingSubBrand.id === b.id ? (
+                  <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingSubBrand.name} onChange={e => setEditingSubBrand({...editingSubBrand, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateSubBrand(b.id)} onBlur={() => handleUpdateSubBrand(b.id)} />
+                ) : (
+                  <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
+                )}
+                <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => setEditingSubBrand({id: b.id, name: b.name})} className="p-1.5 text-gray-700 hover:text-purple-600 hover:bg-purple-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                  <button type="button" onClick={() => setDeleteSubBrandConfirm({ isOpen: true, id: b.id })} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Colors */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Palette className="w-5 h-5 text-purple-600"/> Manage Colors</h3>
+          <div className="flex gap-2 mb-4">
+            <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Color..." value={newColor} onChange={e => setNewColor(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddColor()} />
+            <button onClick={handleAddColor} className="bg-purple-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors font-medium">Add</button>
+          </div>
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+            {colors.map(b => (
+              <div key={b.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-purple-200 transition-colors group">
+                {editingColor.id === b.id ? (
+                  <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingColor.name} onChange={e => setEditingColor({...editingColor, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateColor(b.id)} onBlur={() => handleUpdateColor(b.id)} />
+                ) : (
+                  <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
+                )}
+                <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => setEditingColor({id: b.id, name: b.name})} className="p-1.5 text-gray-700 hover:text-purple-600 hover:bg-purple-50 rounded"><Pencil className="w-3.5 h-3.5"/></button>
+                  <button type="button" onClick={() => setDeleteColorConfirm({ isOpen: true, id: b.id })} className="p-1.5 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5"/></button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -402,24 +532,30 @@ export default function SwitchProductManagement() {
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Sub-brand (Optional)</label>
-              <input
-                type="text"
+              <select
                 value={formData.sub_brand}
                 onChange={(e) => setFormData(prev => ({ ...prev, sub_brand: e.target.value }))}
-                placeholder="e.g. Fabio"
                 className="input-field"
-              />
+              >
+                <option value="">None / Select Sub-brand</option>
+                {subBrands.map(b => (
+                  <option key={b.id} value={b.name}>{b.name}</option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Color (Optional)</label>
-              <input
-                type="text"
+              <select
                 value={formData.color}
                 onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                placeholder="e.g. White"
                 className="input-field"
-              />
+              >
+                <option value="">None / Select Color</option>
+                {colors.map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -470,8 +606,15 @@ export default function SwitchProductManagement() {
                 });
                 return (
                   <div key={name} className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-purple-50 px-4 py-2 border-l-4 border-purple-500 font-bold text-purple-900">
-                      {name}
+                    <div className="bg-purple-50 px-4 py-2 border-l-4 border-purple-500 font-bold text-purple-900 flex items-center justify-between">
+                      <span>{name}</span>
+                      <button 
+                        onClick={() => handleQuickAddVariation(name)}
+                        className="p-1 bg-purple-200 text-purple-700 hover:bg-purple-300 rounded-md transition-colors flex items-center gap-1 text-xs font-medium"
+                        title="Add variation for this product"
+                      >
+                        <Plus className="w-3 h-3" /> Add Variation
+                      </button>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -505,24 +648,32 @@ export default function SwitchProductManagement() {
                                 <td className="px-4 py-2 text-gray-600">{v.brands?.name}</td>
                                 <td className="px-4 py-2">
                                   {isEditing ? (
-                                    <input 
-                                      type="text" 
-                                      className="input-field py-1 px-2 text-sm w-24" 
+                                    <select 
+                                      className="input-field py-1 px-2 text-sm w-28" 
                                       value={editingVariant.sub_brand} 
                                       onChange={e => setEditingVariant({...editingVariant, sub_brand: e.target.value})} 
-                                    />
+                                    >
+                                      <option value="">None</option>
+                                      {subBrands.map(b => (
+                                        <option key={b.id} value={b.name}>{b.name}</option>
+                                      ))}
+                                    </select>
                                   ) : (
                                     v.sub_brand || '-'
                                   )}
                                 </td>
                                 <td className="px-4 py-2">
                                   {isEditing ? (
-                                    <input 
-                                      type="text" 
-                                      className="input-field py-1 px-2 text-sm w-24" 
+                                    <select 
+                                      className="input-field py-1 px-2 text-sm w-28" 
                                       value={editingVariant.color} 
                                       onChange={e => setEditingVariant({...editingVariant, color: e.target.value})} 
-                                    />
+                                    >
+                                      <option value="">None</option>
+                                      {colors.map(c => (
+                                        <option key={c.id} value={c.name}>{c.name}</option>
+                                      ))}
+                                    </select>
                                   ) : (
                                     v.color || '-'
                                   )}
