@@ -22,12 +22,19 @@ export default function History({ setActiveTab }) {
     setLoading(true);
     try {
       const systemMode = useQuoteStore.getState().systemMode;
-      const { data, error } = await supabase
+      let query = supabase
         .from('quotations')
         .select('*, quotation_items(*, products(*, brands(*)))')
         .eq('is_deleted', showTrash)
-        .eq('quote_type', systemMode || 'Image Quote')
         .order('updated_at', { ascending: false });
+
+      if (systemMode === 'Switch Quote') {
+        query = query.in('quote_type', ['Switch Quote', 'Comparison']);
+      } else {
+        query = query.eq('quote_type', systemMode || 'Image Quote');
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching quotes:", error.message);
