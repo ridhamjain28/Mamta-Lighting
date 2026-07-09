@@ -108,9 +108,10 @@ export default function SwitchProductManagement() {
     } else {
       setProducts(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       addToast('Product added successfully', 'success');
+      setNameSearch('');
       setFormData(prev => ({
         ...prev,
-        color: '',
+        name: '',
         base_price: ''
       }));
     }
