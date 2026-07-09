@@ -117,40 +117,76 @@ export function standardizeProductName(name) {
 }
 
 export function getProductRank(name) {
-  if (!name || typeof name !== 'string') return 100;
+  if (!name || typeof name !== 'string') return 1000;
   const n = name.trim().toLowerCase();
-  const exactList = [
-    "switch 6a one-way - 1 module",
-    "switch 6a two-way - 1 module",
-    "switch 16a one-way with indicator - 1 module",
-    "switch 6a - bell - 1 module",
-    "socket 6a 3-pin-only shuttered - 2 module",
-    "socket 16a and 6a 3-pin shuttered - 2 module",
-    "fan regulator for 120w fan - 2 module",
-    "indicator light - 1 module",
-    "step marker lamp/night lamp - 2 module",
-    "usb charger socket outlet a+c type - 1 module",
-    "blanking plate - 1 module",
-    "1m", "2m", "3m", "4m", "6m", "8m(h)", "8m(s)", "12m", "14m", "16m", "21m",
-    "ac starter"
-  ];
-  const exactIndex = exactList.indexOf(n);
-  if (exactIndex !== -1) return exactIndex;
-  if (n.startsWith('switch 6a')) return 1.5;
-  if (n.startsWith('switch 16a')) return 2.5;
-  if (n.startsWith('switch 20a') || n.startsWith('switch 25a') || n.startsWith('switch 32a')) return 3.5;
-  if (n.startsWith('socket')) return 6.5;
-  if (n.startsWith('fan regulator')) return 7.5;
-  if (n.startsWith('indicator')) return 8.5;
-  if (n.startsWith('step marker') || n.startsWith('footlight')) return 9.5;
-  if (n.includes('usb') || n.includes('charger')) return 10.1;
-  if (n.includes('telephone') || n.includes('tv socket') || n.includes('computer')) return 10.2;
-  if (n.includes('buzzer')) return 10.3;
-  if (n.startsWith('blank')) return 11.5;
-  if (n.includes('mcb')) return 99;
-  if (n.match(/^\\d+m/)) {
-    const match = n.match(/^(\\d+)m/);
-    return 12 + (match ? parseInt(match[1]) / 100 : 0);
+  
+  // Base category ranks
+  let categoryRank = 800; // Rest everything
+
+  // 1. Switches
+  if (n.includes('switch')) categoryRank = 100;
+  // 2. Sockets
+  else if (n.includes('socket')) categoryRank = 200;
+  // 3. Fan Regulators
+  else if (n.includes('fan regulator')) categoryRank = 300;
+  // 4. Communication Modules
+  else if (n.includes('usb') || n.includes('charger') || n.includes('telephone') || n.includes('tv ') || n.includes('computer') || n.includes('rj45')) categoryRank = 400;
+  // 5. Support Modules
+  else if (n.includes('indicator') || n.includes('step marker') || n.includes('footlight') || n.includes('blank') || n.includes('dummy') || n.includes('buzzer') || n.includes('starter')) categoryRank = 500;
+  // 6. Mini MCBs
+  else if (n.includes('mcb')) categoryRank = 600;
+  // 7. Plates
+  else if (n.match(/^\d+m/)) categoryRank = 700;
+
+  // Fine-tuning within categories
+  if (categoryRank === 100) {
+    if (n === 'switch 6a one-way - 1 module') return 101;
+    if (n === 'switch 6a two-way - 1 module') return 102;
+    if (n === 'switch 6a - bell - 1 module') return 103;
+    if (n.includes('6a')) return 105;
+    if (n === 'switch 16a one-way with indicator - 1 module') return 111;
+    if (n.includes('16a')) return 115;
+    if (n.match(/\b(20a|25a|32a)\b/)) return 120;
+    return 199;
   }
-  return 100;
+  
+  if (categoryRank === 200) {
+    if (n === 'socket 6a 3-pin-only shuttered - 2 module') return 201;
+    if (n === 'socket 16a and 6a 3-pin shuttered - 2 module') return 202;
+    if (n.includes('6a') && !n.includes('16a')) return 205;
+    if (n.includes('16a')) return 210;
+    return 299;
+  }
+
+  if (categoryRank === 300) {
+    if (n === 'fan regulator for 120w fan - 2 module') return 301;
+    return 399;
+  }
+
+  if (categoryRank === 400) {
+    if (n.includes('usb') || n.includes('charger')) return 401;
+    if (n.includes('telephone')) return 402;
+    if (n.includes('tv')) return 403;
+    if (n.includes('computer') || n.includes('rj45')) return 404;
+    return 499;
+  }
+
+  if (categoryRank === 500) {
+    if (n === 'indicator light - 1 module') return 501;
+    if (n === 'step marker lamp/night lamp - 2 module') return 502;
+    if (n.includes('indicator')) return 505;
+    if (n.includes('step marker') || n.includes('footlight')) return 510;
+    if (n.includes('blank') || n.includes('dummy')) return 515;
+    if (n.includes('buzzer')) return 520;
+    if (n.includes('starter')) return 525;
+    return 599;
+  }
+
+  if (categoryRank === 700) {
+    const match = n.match(/^(\d+)m/);
+    if (match) return 700 + parseInt(match[1]);
+    return 799;
+  }
+
+  return categoryRank;
 }
