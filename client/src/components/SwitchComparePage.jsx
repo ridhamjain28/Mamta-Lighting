@@ -372,10 +372,10 @@ export default function SwitchComparePage() {
         })}
       </div>
 
-      {/* --- PRINT T&C AND FOOTER (Page 2) --- */}
-      <div className="hidden print:flex print:flex-col print:h-[280mm] w-full mt-8 print:mt-0 print:break-before-page relative">
+      {/* --- PRINT T&C AND FOOTER --- */}
+      <div className="hidden print:block w-full mt-8">
         {/* T&C Section */}
-        <div className="text-[11px] leading-relaxed border-t border-gray-100 pt-4">
+        <div className="text-[11px] leading-relaxed border-t border-gray-100 pt-4" style={{ pageBreakInside: 'avoid' }}>
           <h4 className="font-bold text-xs mb-1">Terms & Conditions:</h4>
           <ol className="list-decimal pl-4 space-y-0.5">
             <li>Prices are subject to change without prior notice.</li>
@@ -387,8 +387,8 @@ export default function SwitchComparePage() {
           <div className="text-center font-bold text-xs mt-4">Looking Forward To Your Valuable Order!</div>
         </div>
 
-        {/* Repeating Brands Footer (at bottom of sheet) */}
-        <div className="absolute bottom-0 w-full pt-6 border-t border-gray-200 flex justify-between items-center opacity-85">
+        {/* Brands Footer */}
+        <div className="w-full mt-8 pt-4 border-t border-gray-200 flex justify-between items-center opacity-85" style={{ pageBreakInside: 'avoid' }}>
           <img src="/havells.png" alt="Havells" className="h-[40px] object-contain" />
           <img src="/norisys.png" alt="Norisys" className="h-[50px] object-contain" />
           <img src="/beton.png" alt="Beton" className="h-[40px] object-contain" />

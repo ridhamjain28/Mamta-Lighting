@@ -11,6 +11,7 @@ export default function History({ setActiveTab }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showTrash, setShowTrash] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, quote: null });
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const { addToast } = useToastStore();
 
   useEffect(() => {
@@ -85,6 +86,24 @@ export default function History({ setActiveTab }) {
       addToast("Quotation permanently deleted.", "success");
     } catch (err) {
       addToast("Failed to delete quotation.", "error");
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    try {
+      const fileNames = quotes.map(q => q.pdf_url?.split('/').pop()).filter(Boolean);
+      
+      if (fileNames.length > 0) {
+        await supabase.storage.from('quotations').remove(fileNames);
+      }
+      
+      const { error } = await supabase.from('quotations').delete().eq('is_deleted', true);
+      if (error) throw error;
+      
+      setQuotes([]);
+      addToast("Trash emptied successfully.", "success");
+    } catch (err) {
+      addToast("Failed to empty trash.", "error");
     }
   };
 
@@ -187,6 +206,14 @@ export default function History({ setActiveTab }) {
         </div>
         
         <div className="flex items-center gap-4 w-full md:w-auto">
+          {showTrash && quotes.length > 0 && (
+            <button 
+              onClick={() => setDeleteAllConfirm(true)}
+              className="px-4 py-2 rounded-md font-medium text-sm border transition-colors whitespace-nowrap bg-red-600 text-white border-red-600 hover:bg-red-700"
+            >
+              Empty Trash
+            </button>
+          )}
           <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 w-4 h-4" />
             <input
@@ -294,6 +321,17 @@ export default function History({ setActiveTab }) {
         }}
         onCancel={() => setDeleteConfirm({ isOpen: false, quote: null })}
         confirmText="Delete Permanently"
+      />
+      <ConfirmModal
+        isOpen={deleteAllConfirm}
+        title="Empty Trash"
+        message="Are you sure you want to permanently delete all quotations in the trash? This action cannot be undone."
+        onConfirm={() => {
+          handleEmptyTrash();
+          setDeleteAllConfirm(false);
+        }}
+        onCancel={() => setDeleteAllConfirm(false)}
+        confirmText="Empty Trash"
       />
     </div>
   );

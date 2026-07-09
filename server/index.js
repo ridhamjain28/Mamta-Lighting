@@ -160,18 +160,18 @@ app.post('/api/quotation', async (req, res) => {
       const unit = item.unit_type || 'N';
       const isUnitN = unit === 'N';
       const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
-      const formattedRate = isUnitN ? customOverride.toFixed(2) : `${customOverride.toFixed(2)} ${unit}`;
-      const formattedNetPrice = isUnitN ? netPrice.toFixed(2) : `${netPrice.toFixed(2)} ${unit}`;
+      const formattedRate = isUnitN ? `${customOverride.toFixed(2)} each` : `${customOverride.toFixed(2)} / ${unit}`;
+      const formattedNetPrice = isUnitN ? `${netPrice.toFixed(2)} each` : `${netPrice.toFixed(2)} / ${unit}`;
       
       if (isManualQuote) {
         return `
           <tr>
             <td class="text-center font-bold">${index + 1}</td>
             <td class="font-bold">${displayProductName}</td>
-            <td class="text-center font-bold">${formattedQty}</td>
+            <td class="text-center font-bold highlight-qty">${formattedQty}</td>
             <td class="text-right font-bold">${formattedRate}</td>
             <td class="text-right font-bold">${discountPercentage > 0 ? discountPercentage + '%' : '-'}</td>
-            <td class="text-right font-bold">${total.toFixed(2)}</td>
+            <td class="text-right font-bold highlight-total">${total.toFixed(2)}</td>
           </tr>
         `;
       } else if (isImageQuote) {
@@ -184,10 +184,10 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-center font-bold">${index + 1}</td>
             <td class="text-center">${imageUrl}</td>
             <td class="font-bold">${displayProductName}</td>
-            <td class="text-center font-bold">${formattedQty}</td>
+            <td class="text-center font-bold highlight-qty">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
             <td class="text-right font-bold">${formattedNetPrice}</td>
-            <td class="text-right font-bold">${total.toFixed(2)}</td>
+            <td class="text-right font-bold highlight-total">${total.toFixed(2)}</td>
           </tr>
         `;
       } else {
@@ -195,10 +195,10 @@ app.post('/api/quotation', async (req, res) => {
           <tr>
             <td class="text-center font-bold">${index + 1}</td>
             <td class="font-bold">${displayProductName}</td>
-            <td class="text-center font-bold">${formattedQty}</td>
+            <td class="text-center font-bold highlight-qty">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
             <td class="text-right font-bold">${formattedNetPrice}</td>
-            <td class="text-right font-bold">${total.toFixed(2)}</td>
+            <td class="text-right font-bold highlight-total">${total.toFixed(2)}</td>
           </tr>
         `;
       }
@@ -261,6 +261,8 @@ app.post('/api/quotation', async (req, res) => {
           .text-center { text-align: center; }
           .text-right { text-align: right; }
           .font-bold { font-weight: bold; }
+          .highlight-qty { border-left: 2px solid #000; border-right: 2px solid #000; font-weight: bold; }
+          .highlight-total { border-left: 2px solid #000; border-right: 2px solid #000; font-weight: bold; }
           
           .product-img { max-width: 100px; max-height: 100px; object-fit: contain; display: block; margin: 0 auto; }
         </style>
@@ -295,29 +297,29 @@ app.post('/api/quotation', async (req, res) => {
               <tr>
                 <th width="5%">S.No</th>
                 <th width="45%">Description</th>
-                <th width="10%">Qty</th>
+                <th width="10%" class="highlight-qty">Qty</th>
                 <th width="12%">Rate</th>
                 <th width="12%">Discount</th>
-                <th width="16%">Amount</th>
+                <th width="16%" class="highlight-total">Amount</th>
               </tr>
             ` : isImageQuote ? `
               <tr>
                 <th width="5%">S.No</th>
                 <th width="${hide_list_price ? '24%' : '12%'}">Image</th>
                 <th width="35%">Product</th>
-                <th width="8%">Qty</th>
+                <th width="8%" class="highlight-qty">Qty</th>
                 ${hide_list_price ? '' : '<th width="12%">List Price</th>'}
                 <th width="12%">Net Price</th>
-                <th width="16%">Total</th>
+                <th width="16%" class="highlight-total">Total</th>
               </tr>
             ` : `
               <tr>
                 <th width="5%">S.No</th>
                 <th width="47%">Product</th>
-                <th width="8%">Qty</th>
+                <th width="8%" class="highlight-qty">Qty</th>
                 ${hide_list_price ? '' : '<th width="12%">List Price</th>'}
                 <th width="12%">Net Price</th>
-                <th width="16%">Total</th>
+                <th width="16%" class="highlight-total">Total</th>
               </tr>
             `}
           </thead>
@@ -343,7 +345,7 @@ app.post('/api/quotation', async (req, res) => {
                 ${hide_list_price ? '' : '<td style="border-bottom: none;"></td>'}
               `}
               <td class="text-right font-bold">Subtotal</td>
-              <td class="text-right font-bold">${parseFloat(subtotal).toFixed(2)}</td>
+              <td class="text-right font-bold highlight-total">${parseFloat(subtotal).toFixed(2)}</td>
             </tr>
             ${gst_included ? `
             <tr>
@@ -365,7 +367,7 @@ app.post('/api/quotation', async (req, res) => {
                 ${hide_list_price ? '' : '<td style="border-bottom: none; border-top: none;"></td>'}
               `}
               <td class="text-right font-bold">18% GST</td>
-              <td class="text-right font-bold">${parseFloat(gst_amount).toFixed(2)}</td>
+              <td class="text-right font-bold highlight-total">${parseFloat(gst_amount).toFixed(2)}</td>
             </tr>
             ` : ''}
             <tr style="background-color: #d9ead3;">
@@ -387,13 +389,13 @@ app.post('/api/quotation', async (req, res) => {
                 ${hide_list_price ? '' : '<td style="border-top: none; background-color: #fff;"></td>'}
               `}
               <td class="text-right font-bold">Total</td>
-              <td class="text-right font-bold">${Math.round(grand_total).toLocaleString()}</td>
+              <td class="text-right font-bold highlight-total">${Math.round(grand_total).toLocaleString()}</td>
             </tr>
           </tbody>
         </table>
 
-        <!-- Terms and conditions appended at the end of the document -->
-        <div style="page-break-inside: avoid; margin-top: 15px; padding-bottom: 0px;">
+        <!-- Terms and conditions -->
+        <div style="margin-top: 15px; padding-bottom: 0px;">
           <div style="font-size: 11px; line-height: 1.5; margin-bottom: 10px;">
             <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms & Conditions:</h4>
             <ol style="padding-left: 20px; margin: 0;">
@@ -406,6 +408,18 @@ app.post('/api/quotation', async (req, res) => {
             <div style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 12px;">Looking Forward To Your Valuable Order!</div>
           </div>
         </div>
+
+        <!-- Footer block at the end of the document -->
+        <div style="margin-top: 30px; font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; -webkit-print-color-adjust: exact;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-top: 1px solid #eee; padding-top: 15px;">
+            ${logos.havells ? `<img src="${logos.havells}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
+            ${logos.norisys ? `<img src="${logos.norisys}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
+            ${logos.beton ? `<img src="${logos.beton}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">BETON</span>`}
+            ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
+            ${logos.finolex ? `<img src="${logos.finolex}" style="height: 35px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
+          </div>
+        </div>
+
 
       </body>
       </html>
@@ -424,18 +438,16 @@ app.post('/api/quotation', async (req, res) => {
       console.log('Timeout waiting for network idle, but proceeding to generate PDF anyway.');
     }
     
-    // Generate PDF with repeating headers and footers
+    // Generate PDF (without repeating headers/footers to keep footer on last page)
     const pdfBuffer = await page.pdf({ 
       format: 'A4',
       printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate: headerTemplate,
-      footerTemplate: footerTemplate,
+      displayHeaderFooter: false,
       margin: { 
-        top: '20mm',    
-        bottom: '100px', 
-        right: '15mm', 
-        left: '15mm' 
+        top: '15mm',    
+        bottom: '15mm', 
+        right: '10mm', 
+        left: '10mm' 
       }
     });
     await browser.close();
