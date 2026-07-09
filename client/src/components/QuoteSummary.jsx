@@ -92,7 +92,20 @@ export default function QuoteSummary() {
       try {
         const projPart = customer.project ? ` - ${customer.project}` : '';
         const namePart = customer.name ? customer.name : 'Walk-in';
-        const fileName = `Quotation - ${namePart}${projPart}.pdf`;
+        
+        let brandPart = '';
+        if (quoteType === 'Switch Quote' && activeItems.length > 0) {
+          const firstSwitch = activeItems.find(i => i.product_type === 'Switch Product' || i.product_type === 'Manual Product');
+          if (firstSwitch) {
+            const brandName = firstSwitch.brands?.name || '';
+            const subBrand = firstSwitch.sub_brand || '';
+            const color = firstSwitch.color || '';
+            const str = `${brandName} ${subBrand} ${color}`.trim();
+            if (str) brandPart = ` - ${str}`;
+          }
+        }
+        
+        const fileName = `Quotation - ${namePart}${projPart}${brandPart}.pdf`;
         const downloadUrl = `${data.pdfUrl}?download=${encodeURIComponent(fileName)}`;
         
         const a = document.createElement('a');

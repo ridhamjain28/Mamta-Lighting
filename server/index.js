@@ -136,6 +136,17 @@ app.post('/api/quotation', async (req, res) => {
     const isManualQuote = quote_type === 'Manual Quote';
     const isImageQuote = quote_type === 'Image Quote';
 
+    let switchBrandStr = 'Switch';
+    if (quote_type === 'Switch Quote' && items && items.length > 0) {
+      const firstSwitch = items.find(i => i.product_type === 'Switch Product' || i.product_type === 'Manual Product');
+      if (firstSwitch) {
+        const brandName = firstSwitch.brands?.name || '';
+        const subBrand = firstSwitch.sub_brand || '';
+        const color = firstSwitch.color || '';
+        switchBrandStr = `${brandName} ${subBrand} ${color}`.trim() || 'Switch';
+      }
+    }
+
     const itemsHtml = itemsWithBase64Images.map((item, index) => {
       const listPrice = item.base_price || 0;
       const customOverride = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
@@ -272,7 +283,7 @@ app.post('/api/quotation', async (req, res) => {
           </div>
           <div class="customer-info-right">
             Date: ${dateStr}<br>
-            ${quote_type === 'Wire Quote' ? 'Wire' : quote_type === 'Switch Quote' ? 'Switch' : 'Lighting'}
+            ${quote_type === 'Wire Quote' ? 'Wire' : quote_type === 'Switch Quote' ? switchBrandStr : 'Lighting'}
           </div>
         </div>
 
