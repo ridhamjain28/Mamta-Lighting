@@ -114,7 +114,55 @@ export const useQuoteStore = create((set, get) => ({
   })),
 
   updateItemDiscount: (cartItemId, discount) => set((state) => ({
-    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, discount_override: discount === '' ? '' : Number(discount) } : item)
+    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, discount_override: discount === '' ? '' : Number(discount), tax_paid_price: null } : item)
+  })),
+
+  // Tax Paid Price: back-calculate discount from a GST-inclusive final price
+  updateItemTaxPaidPrice: (cartItemId, taxPaidPrice) => set((state) => ({
+    items: state.items.map(item => {
+      if ((item.cartItemId || item.id) !== cartItemId) return item;
+      
+      if (taxPaidPrice === '' || taxPaidPrice === null || taxPaidPrice === undefined) {
+        return { ...item, tax_paid_price: null };
+      }
+      
+      const tpp = Number(taxPaidPrice);
+      if (isNaN(tpp) || tpp <= 0) {
+        return { ...item, tax_paid_price: null };
+      }
+      
+      // Find pre-GST (net) price such that Math.ceil(net * 1.18) === tpp
+      // Start with floor(tpp / 1.18) and check
+      let preGst = Math.floor(tpp / 1.18);
+      if (Math.ceil(preGst * 1.18) > tpp) {
+        preGst = preGst - 1;
+      } else if (Math.ceil((preGst + 1) * 1.18) <= tpp) {
+        preGst = preGst + 1;
+      }
+      // Final verification: Math.ceil(preGst * 1.18) should equal tpp
+      // If not exact, use the closest that doesn't exceed tpp
+      if (Math.ceil(preGst * 1.18) !== tpp) {
+        // Fallback: just use floor division
+        preGst = Math.floor(tpp / 1.18);
+      }
+      
+      // Get the list price for this item
+      let listPrice = item.custom_price_override;
+      if (listPrice === null || listPrice === undefined || listPrice === '' || Number(listPrice) === 0) {
+        listPrice = item.base_price;
+      } else {
+        listPrice = Number(listPrice);
+      }
+      
+      // Calculate discount percentage: how much off the list price to reach preGst
+      const discountPct = listPrice > 0 ? ((listPrice - preGst) / listPrice) * 100 : 0;
+      
+      return { 
+        ...item, 
+        tax_paid_price: tpp,
+        discount_override: Math.round(discountPct * 100) / 100 // round to 2 decimal places
+      };
+    })
   })),
 
   removeItem: (cartItemId) => set((state) => ({
@@ -140,13 +188,13 @@ export const useQuoteStore = create((set, get) => ({
       const effectiveDiscount = (item.discount_override !== '' && item.discount_override !== null) 
         ? Number(item.discount_override) 
         : (Number(globalDiscount) || 0);
-      const finalPrice = price - (price * (effectiveDiscount / 100));
-      return acc + (finalPrice * item.quantity);
+      const netPrice = Math.ceil(price - (price * (effectiveDiscount / 100)));
+      return acc + (netPrice * item.quantity);
     }, 0);
 
     const afterDiscount = subtotal;
-    const gstAmount = gstIncluded ? afterDiscount * 0.18 : 0;
-    const grandTotal = Math.round(afterDiscount + gstAmount);
+    const gstAmount = gstIncluded ? Math.ceil(afterDiscount * 0.18) : 0;
+    const grandTotal = Math.ceil(afterDiscount + gstAmount);
 
     return {
       subtotal,
@@ -229,7 +277,7 @@ export const useQuoteStore = create((set, get) => ({
           const itemDisc = (item.discount_override !== '' && item.discount_override !== null) 
               ? Number(item.discount_override) 
               : (Number(globalDiscount) || 0);
-          const finalPrice = itemPrice - (itemPrice * itemDisc / 100);
+          const finalPrice = Math.ceil(itemPrice - (itemPrice * itemDisc / 100));
           
           return {
             quotation_id: savedQuote.id,

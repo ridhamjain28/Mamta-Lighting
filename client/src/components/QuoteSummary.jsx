@@ -238,19 +238,19 @@ export default function QuoteSummary() {
         <div className="space-y-1 mb-4">
           <div className="flex justify-between text-gray-700 text-sm">
             <span>Subtotal (After Discounts)</span>
-            <span>₹{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+            <span>₹{Math.ceil(subtotal).toLocaleString()}</span>
           </div>
           {gstIncluded && (
             <div className="flex justify-between text-gray-700 text-sm">
               <span>GST (18%)</span>
-              <span>₹{gst_amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+              <span>₹{Math.ceil(gst_amount).toLocaleString()}</span>
             </div>
           )}
         </div>
         
         <div className="flex justify-between text-gray-900 font-bold text-2xl mb-6 pt-3 border-t border-gray-200">
           <span>Grand Total</span>
-          <span>₹{Math.round(grand_total).toLocaleString()}</span>
+          <span>₹{Math.ceil(grand_total).toLocaleString()}</span>
         </div>
         
         <div className="flex gap-3">

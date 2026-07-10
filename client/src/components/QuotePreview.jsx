@@ -100,7 +100,7 @@ export default function QuotePreview() {
                   const listPrice = item.base_price || 0;
                   const customOverride = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
                   const discountPercentage = item.discount_override || 0;
-                  const netPrice = customOverride - (customOverride * (discountPercentage / 100));
+                  const netPrice = Math.ceil(customOverride - (customOverride * (discountPercentage / 100)));
                   const total = netPrice * item.quantity;
                   
                   const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
@@ -153,17 +153,17 @@ export default function QuotePreview() {
               {/* Totals */}
               <tr>
                 <td className="border-t border-black p-2 text-right font-bold" colSpan={isManualQuote ? 4 : (hideListPrice ? 3 : 4)}>Subtotal</td>
-                <td className="border border-black p-2 text-right font-bold" colSpan={2}>₹{subtotal.toFixed(2)}</td>
+                <td className="border border-black p-2 text-right font-bold" colSpan={2}>₹{Math.ceil(subtotal).toLocaleString()}</td>
               </tr>
               {gstIncluded && (
                 <tr>
                   <td className="border-t border-black p-2 text-right font-bold" colSpan={isManualQuote ? 4 : (hideListPrice ? 3 : 4)}>18% GST</td>
-                  <td className="border border-black p-2 text-right font-bold" colSpan={2}>₹{gst_amount.toFixed(2)}</td>
+                  <td className="border border-black p-2 text-right font-bold" colSpan={2}>₹{Math.ceil(gst_amount).toLocaleString()}</td>
                 </tr>
               )}
               <tr className="bg-green-50">
                 <td className="border-t-2 border-black p-2 text-right font-bold text-sm" colSpan={isManualQuote ? 4 : (hideListPrice ? 3 : 4)}>Total</td>
-                <td className="border border-black p-2 text-right font-bold text-sm" colSpan={2}>₹{Math.round(grand_total).toLocaleString()}</td>
+                <td className="border border-black p-2 text-right font-bold text-sm" colSpan={2}>₹{Math.ceil(grand_total).toLocaleString()}</td>
               </tr>
             </tbody>
           </table>

@@ -10,8 +10,10 @@ export default function Cart() {
     updateItemQuantity, 
     updateItemPrice, 
     updateItemDiscount, 
+    updateItemTaxPaidPrice,
     removeItem,
-    globalDiscount
+    globalDiscount,
+    gstIncluded
   } = useQuoteStore();
 
   return (
@@ -28,7 +30,21 @@ export default function Cart() {
             <p>Cart is empty. Add products to begin.</p>
           </div>
         ) : (
-          items.map(item => (
+          items.map(item => {
+            // Compute values once for display
+            let price = item.custom_price_override;
+            if (price === null || price === undefined || price === '' || Number(price) === 0) {
+              price = item.base_price;
+            } else {
+              price = Number(price);
+            }
+            const disc = (item.discount_override !== '' && item.discount_override !== null) ? Number(item.discount_override) : (Number(globalDiscount) || 0);
+            const netPrice = Math.ceil(price - (price * (disc / 100)));
+            const lineTotal = netPrice * item.quantity;
+            // What the customer actually pays per unit (with GST)
+            const computedTaxPaid = gstIncluded ? Math.ceil(netPrice * 1.18) : null;
+
+            return (
             <div key={item.cartItemId || item.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm relative group">
               <button 
                 onClick={() => removeItem(item.cartItemId || item.id)}
@@ -85,23 +101,32 @@ export default function Cart() {
                   </div>
                 </div>
 
+                {/* Tax Paid Price */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-700 text-xs whitespace-nowrap">Tax Paid:</span>
+                    <input 
+                      type="number" 
+                      className="border border-green-300 rounded p-1 w-24 text-right font-medium text-green-700 bg-green-50 focus:ring-2 focus:ring-green-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={item.tax_paid_price ?? ''}
+                      placeholder={computedTaxPaid ? `₹${computedTaxPaid}` : '—'}
+                      onChange={(e) => updateItemTaxPaidPrice(item.cartItemId || item.id, e.target.value)}
+                    />
+                  </div>
+                  {item.tax_paid_price && (
+                    <div className="text-[10px] text-green-600 text-right">
+                      Net: ₹{netPrice.toLocaleString()} + GST
+                    </div>
+                  )}
+                </div>
+
                 {/* Total */}
                 <div className="text-right font-bold text-gray-800">
-                  {(() => {
-                    let price = item.custom_price_override;
-                    if (price === null || price === undefined || price === '' || Number(price) === 0) {
-                      price = item.base_price;
-                    } else {
-                      price = Number(price);
-                    }
-                    const disc = (item.discount_override !== '' && item.discount_override !== null) ? Number(item.discount_override) : (Number(globalDiscount) || 0);
-                    const finalPrice = price - (price * (disc / 100));
-                    return `₹${(finalPrice * item.quantity).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-                  })()}
+                  {`₹${lineTotal.toLocaleString()}`}
                 </div>
               </div>
             </div>
-          ))
+          );})
         )}
       </div>
 

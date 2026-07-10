@@ -121,47 +121,6 @@ app.post('/api/quotation', async (req, res) => {
     const safe_phone_number = escapeHTML(phone_number);
     const safe_project_name = escapeHTML(project_name);
 
-    // Strict math validation
-    let serverSubtotal = 0;
-    const validatedItems = items.map(item => {
-      const customOverride = (item.custom_price_override !== null && item.custom_price_override !== undefined && item.custom_price_override !== '') 
-        ? Number(item.custom_price_override) 
-        : Number(item.base_price || 0);
-      const discountPercentage = Number(item.discount_override || 0);
-      const netPrice = customOverride - (customOverride * (discountPercentage / 100));
-      const quantity = Number(item.quantity || 0);
-      const total = netPrice * quantity;
-      
-      serverSubtotal += total;
-      
-      return { 
-        ...item, 
-        serverNetPrice: netPrice, 
-        serverTotal: total, 
-        serverCustomOverride: customOverride,
-        safe_name: escapeHTML(item.name),
-        safe_model: escapeHTML(item.model_number),
-        safe_brand: escapeHTML(item.brands?.name)
-      };
-    });
-
-    if (Math.abs(serverSubtotal - subtotal) > 0.1) {
-       return res.status(400).json({ error: 'Math verification failed: Subtotal mismatch.' });
-    }
-
-    let serverGst = gst_included ? serverSubtotal * 0.18 : 0;
-    if (gst_included && Math.abs(serverGst - (gst_amount || 0)) > 0.1) {
-       return res.status(400).json({ error: 'Math verification failed: GST mismatch.' });
-    }
-
-    let serverGrandTotal = Math.round(serverSubtotal + serverGst);
-    if (Math.abs(serverGrandTotal - grand_total) > 0.1) {
-       return res.status(400).json({ error: 'Math verification failed: Grand total mismatch.' });
-    }
-
-    const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-    const quoteNumber = `MAMTA-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
-
     // Helper to fetch external images as Base64 to bypass headless browser blocking
     const fetchBase64Image = async (url) => {
       if (!url) return null;
@@ -178,14 +137,58 @@ app.post('/api/quotation', async (req, res) => {
       }
     };
 
-    // Pre-fetch all images
-    const itemsWithBase64Images = await Promise.all(items.map(async (item) => {
+    // Validate math AND pre-fetch images in one unified pass.
+    // Previously these were two separate arrays (validatedItems vs itemsWithBase64Images)
+    // which caused images to never show up. Now everything lives in validatedItems.
+    let serverSubtotal = 0;
+    const validatedItems = await Promise.all(items.map(async (item) => {
+      const customOverride = (item.custom_price_override !== null && item.custom_price_override !== undefined && item.custom_price_override !== '') 
+        ? Number(item.custom_price_override) 
+        : Number(item.base_price || 0);
+      const discountPercentage = Number(item.discount_override || 0);
+      const netPrice = Math.ceil(customOverride - (customOverride * (discountPercentage / 100)));
+      const quantity = Number(item.quantity || 0);
+      const total = netPrice * quantity;
+      
+      serverSubtotal += total;
+
+      // Fetch image as base64 right here so it's part of the same object
+      let base64Image = null;
       if (item.primary_image_url) {
-        const b64 = await fetchBase64Image(item.primary_image_url);
-        return { ...item, _base64_image: b64 || item.primary_image_url };
+        base64Image = await fetchBase64Image(item.primary_image_url);
       }
-      return item;
+      
+      return { 
+        ...item, 
+        serverNetPrice: netPrice, 
+        serverTotal: total, 
+        serverCustomOverride: customOverride,
+        _base64_image: base64Image,
+        safe_name: escapeHTML(item.name),
+        safe_model: escapeHTML(item.model_number),
+        safe_brand: escapeHTML(item.brands?.name)
+      };
     }));
+
+    // Recalculate serverSubtotal from the resolved items (Promise.all returns resolved array)
+    serverSubtotal = validatedItems.reduce((acc, item) => acc + item.serverTotal, 0);
+
+    if (Math.abs(serverSubtotal - subtotal) > 1) {
+       return res.status(400).json({ error: 'Math verification failed: Subtotal mismatch.' });
+    }
+
+    let serverGst = gst_included ? Math.ceil(serverSubtotal * 0.18) : 0;
+    if (gst_included && Math.abs(serverGst - (gst_amount || 0)) > 1) {
+       return res.status(400).json({ error: 'Math verification failed: GST mismatch.' });
+    }
+
+    let serverGrandTotal = Math.ceil(serverSubtotal + serverGst);
+    if (Math.abs(serverGrandTotal - grand_total) > 1) {
+       return res.status(400).json({ error: 'Math verification failed: Grand total mismatch.' });
+    }
+
+    const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+    const quoteNumber = `MAMTA-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
     // Build items HTML based on quote type
     const isManualQuote = quote_type === 'Manual Quote';
@@ -216,7 +219,7 @@ app.post('/api/quotation', async (req, res) => {
       const isUnitN = unit === 'N';
       const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
       const formattedRate = isUnitN ? `${customOverride.toFixed(2)} each` : `${customOverride.toFixed(2)} / ${unit}`;
-      const formattedNetPrice = isUnitN ? `${netPrice.toFixed(2)} each` : `${netPrice.toFixed(2)} / ${unit}`;
+      const formattedNetPrice = isUnitN ? `${netPrice.toLocaleString()} each` : `${netPrice.toLocaleString()} / ${unit}`;
       
       if (isManualQuote) {
         return `
@@ -226,7 +229,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-center font-bold highlight-qty">${formattedQty}</td>
             <td class="text-right font-bold">${formattedRate}</td>
             <td class="text-right font-bold">${discountPercentage > 0 ? discountPercentage + '%' : '-'}</td>
-            <td class="text-right font-bold highlight-total">${total.toFixed(2)}</td>
+            <td class="text-right font-bold highlight-total">${total.toLocaleString()}</td>
           </tr>
         `;
       } else if (isImageQuote) {
@@ -242,7 +245,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-center font-bold highlight-qty">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
             <td class="text-right font-bold">${formattedNetPrice}</td>
-            <td class="text-right font-bold highlight-total">${total.toFixed(2)}</td>
+            <td class="text-right font-bold highlight-total">${total.toLocaleString()}</td>
           </tr>
         `;
       } else {
@@ -253,7 +256,7 @@ app.post('/api/quotation', async (req, res) => {
             <td class="text-center font-bold highlight-qty">${formattedQty}</td>
             ${hide_list_price ? '' : `<td class="text-right font-bold">${listPrice.toFixed(2)}</td>`}
             <td class="text-right font-bold">${formattedNetPrice}</td>
-            <td class="text-right font-bold highlight-total">${total.toFixed(2)}</td>
+            <td class="text-right font-bold highlight-total">${total.toLocaleString()}</td>
           </tr>
         `;
       }
@@ -300,7 +303,11 @@ app.post('/api/quotation', async (req, res) => {
         <meta charset="utf-8">
         <title>${documentTitle}</title>
         <style>
-          body { font-family: Arial, sans-serif; font-size: 14px; margin: 0; padding: 0; color: #000; }
+          html, body { height: 100%; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; font-size: 14px; color: #000; display: flex; flex-direction: column; min-height: 100vh; }
+          
+          .page-content { flex: 1 0 auto; }
+          .page-footer { flex-shrink: 0; margin-top: auto; }
           
           .customer-info { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; font-size: 14px; font-weight: bold; margin-top: 20px;}
           .customer-info-left { line-height: 1.6; }
@@ -323,6 +330,7 @@ app.post('/api/quotation', async (req, res) => {
         </style>
       </head>
       <body>
+        <div class="page-content">
         <div style="display: flex; justify-content: flex-end; align-items: flex-start; margin-bottom: 20px;">
           <div style="text-align: right;">
             ${logos.mamta ? `<img src="${logos.mamta}" style="width: 250px; display: inline-block;" />` : `<div style="font-size: 32px; font-weight: bold; color: #3b82f6;">MAMTA</div>`}
@@ -400,7 +408,7 @@ app.post('/api/quotation', async (req, res) => {
                 ${hide_list_price ? '' : '<td style="border-bottom: none;"></td>'}
               `}
               <td class="text-right font-bold">Subtotal</td>
-              <td class="text-right font-bold highlight-total">${parseFloat(subtotal).toFixed(2)}</td>
+              <td class="text-right font-bold highlight-total">${Math.ceil(parseFloat(subtotal)).toLocaleString()}</td>
             </tr>
             ${gst_included ? `
             <tr>
@@ -422,7 +430,7 @@ app.post('/api/quotation', async (req, res) => {
                 ${hide_list_price ? '' : '<td style="border-bottom: none; border-top: none;"></td>'}
               `}
               <td class="text-right font-bold">18% GST</td>
-              <td class="text-right font-bold highlight-total">${parseFloat(gst_amount).toFixed(2)}</td>
+              <td class="text-right font-bold highlight-total">${Math.ceil(parseFloat(gst_amount)).toLocaleString()}</td>
             </tr>
             ` : ''}
             <tr style="background-color: #d9ead3;">
@@ -444,7 +452,7 @@ app.post('/api/quotation', async (req, res) => {
                 ${hide_list_price ? '' : '<td style="border-top: none; background-color: #fff;"></td>'}
               `}
               <td class="text-right font-bold">Total</td>
-              <td class="text-right font-bold highlight-total">${Math.round(grand_total).toLocaleString()}</td>
+              <td class="text-right font-bold highlight-total">${Math.ceil(grand_total).toLocaleString()}</td>
             </tr>
           </tbody>
         </table>
@@ -463,9 +471,10 @@ app.post('/api/quotation', async (req, res) => {
             <div style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 12px;">Looking Forward To Your Valuable Order!</div>
           </div>
         </div>
+        </div><!-- end .page-content -->
 
-        <!-- Footer block at the end of the document -->
-        <div style="margin-top: 30px; font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; -webkit-print-color-adjust: exact;">
+        <!-- Footer block — pushed to bottom of page via flexbox -->
+        <div class="page-footer" style="font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; -webkit-print-color-adjust: exact; padding-top: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-top: 1px solid #eee; padding-top: 15px;">
             ${logos.havells ? `<img src="${logos.havells}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
             ${logos.norisys ? `<img src="${logos.norisys}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
