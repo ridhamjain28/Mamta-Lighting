@@ -141,7 +141,7 @@ export default function QuoteSummary() {
   const handleWhatsApp = () => {
     if (!successData?.pdfUrl) return;
     const greeting = customer.name ? `Hello ${customer.name},\n\n` : `Hello,\n\n`;
-    const text = `${greeting}Here is your quotation.\nView/Download PDF: ${successData.pdfUrl}\n\nThank you!`;
+    const text = `${greeting}Here is your quotation. I will share the PDF file with you shortly.\n\nThank you!`;
     const url = `https://wa.me/${customer.phone || ''}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
