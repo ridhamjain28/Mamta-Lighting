@@ -115,13 +115,19 @@ export default function History({ setActiveTab }) {
   };
 
   const mapQuotationItems = (quote) => {
-    return (quote.quotation_items || []).map(qi => ({
-      ...qi.products,
-      cartItemId: qi.products.selected_wattage ? `${qi.products.id}-${qi.products.selected_wattage}` : qi.products.id,
-      quantity: qi.quantity,
-      discount_override: '',
-      custom_price_override: null
-    }));
+    return (quote.quotation_items || []).map((qi, index) => {
+      const baseId = qi.products.selected_wattage ? `${qi.products.id}-${qi.products.selected_wattage}` : qi.products.id;
+      // Add a unique suffix to keep items separate in the cart (e.g. for room-wise lists)
+      const uniqueSuffix = `${Date.now()}-${index}`;
+      return {
+        ...qi.products,
+        cartItemId: `${baseId}-${uniqueSuffix}`,
+        quantity: qi.quantity,
+        description: qi.description || '',
+        discount_override: qi.discount_override !== null && qi.discount_override !== undefined ? qi.discount_override : '',
+        custom_price_override: qi.custom_price_override
+      };
+    });
   };
 
   const handleEdit = (quote) => {

@@ -78,27 +78,40 @@ export const useQuoteStore = create((set, get) => ({
   toggleHideListPrice: (hide) => set({ hideListPrice: hide }),
 
   addItem: (product) => set((state) => {
-    // Treat different wattages of the same product as different cart items
+    // Treat different wattages or descriptions of the same product as different cart items
     const compositeId = product.selected_wattage ? `${product.id}-${product.selected_wattage}` : product.id;
+    const prodDesc = product.description || '';
     
     const exists = state.items.find(item => {
-      const itemCompositeId = item.selected_wattage ? `${item.id}-${item.selected_wattage}` : item.id;
-      return itemCompositeId === compositeId;
+      const itemWattage = item.selected_wattage || '';
+      const targetWattage = product.selected_wattage || '';
+      const itemDesc = item.description || '';
+      return item.id === product.id && itemWattage === targetWattage && itemDesc === prodDesc;
     });
 
     if (exists) {
       return { 
         items: state.items.map(item => {
-          const itemCompositeId = item.selected_wattage ? `${item.id}-${item.selected_wattage}` : item.id;
-          return itemCompositeId === compositeId ? { ...item, quantity: item.quantity + (product.quantity ?? 1) } : item;
+          const itemWattage = item.selected_wattage || '';
+          const targetWattage = product.selected_wattage || '';
+          const itemDesc = item.description || '';
+          if (item.id === product.id && itemWattage === targetWattage && itemDesc === prodDesc) {
+            return { ...item, quantity: item.quantity + (product.quantity ?? 1) };
+          }
+          return item;
         }) 
       };
     }
+
+    const uniqueSuffix = Math.random().toString(36).substring(2, 7);
+    const newCartItemId = `${compositeId}-${uniqueSuffix}`;
+
     return { 
       items: [...state.items, { 
         ...product, 
-        cartItemId: compositeId, // We can store a unique cart item ID
+        cartItemId: newCartItemId,
         quantity: product.quantity ?? 1, 
+        description: prodDesc,
         discount_override: product.discount_override ?? '', 
         custom_price_override: product.custom_price_override ?? product.base_price 
       }] 
@@ -116,6 +129,31 @@ export const useQuoteStore = create((set, get) => ({
   updateItemDiscount: (cartItemId, discount) => set((state) => ({
     items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, discount_override: discount === '' ? '' : Number(discount), tax_paid_price: null } : item)
   })),
+
+  updateItemDescription: (cartItemId, description) => set((state) => ({
+    items: state.items.map(item => (item.cartItemId || item.id) === cartItemId ? { ...item, description } : item)
+  })),
+
+  duplicateItem: (cartItemId) => set((state) => {
+    const itemToDuplicate = state.items.find(item => (item.cartItemId || item.id) === cartItemId);
+    if (!itemToDuplicate) return {};
+    
+    const uniqueSuffix = Math.random().toString(36).substring(2, 7);
+    const baseId = itemToDuplicate.selected_wattage ? `${itemToDuplicate.id}-${itemToDuplicate.selected_wattage}` : itemToDuplicate.id;
+    const newCartItemId = `${baseId}-${uniqueSuffix}`;
+    
+    const newItem = {
+      ...itemToDuplicate,
+      cartItemId: newCartItemId,
+      description: itemToDuplicate.description ? `${itemToDuplicate.description} (Copy)` : ''
+    };
+    
+    const index = state.items.findIndex(item => (item.cartItemId || item.id) === cartItemId);
+    const newItems = [...state.items];
+    newItems.splice(index + 1, 0, newItem);
+    
+    return { items: newItems };
+  }),
 
   // Tax Paid Price: back-calculate discount from a GST-inclusive final price
   updateItemTaxPaidPrice: (cartItemId, taxPaidPrice) => set((state) => ({
@@ -287,7 +325,8 @@ export const useQuoteStore = create((set, get) => ({
             discount_override: item.discount_override !== '' ? Number(item.discount_override) : null,
             custom_price_override: item.custom_price_override !== null ? Number(item.custom_price_override) : null,
             final_unit_price: finalPrice,
-            line_total: finalPrice * Number(item.quantity)
+            line_total: finalPrice * Number(item.quantity),
+            description: item.description || null
           };
         });
         

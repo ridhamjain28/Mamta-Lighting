@@ -45,7 +45,7 @@ export default function SwitchQuotePage() {
       setAllProducts(data || []);
       
       // Initialize selection based on the first item found (or a product currently in the cart)
-      const cartProduct = data?.find(p => items.some(it => (it.cartItemId || it.id) === p.id));
+      const cartProduct = data?.find(p => items.some(it => it.id === p.id));
       const initProduct = cartProduct || (data && data[0]);
       
       if (initProduct) {
@@ -143,17 +143,21 @@ export default function SwitchQuotePage() {
         if (matchingNewProduct) {
           hasChanges = true;
           // Check if this new product is already in our migrated newItems list (from earlier iterations)
-          const existingMigratedIndex = newItems.findIndex((it, idx) => idx < i && it && it.cartItemId === matchingNewProduct.id);
+          const existingMigratedIndex = newItems.findIndex((it, idx) => 
+            idx < i && it && it.id === matchingNewProduct.id && (it.description || '') === (item.description || '')
+          );
           
           if (existingMigratedIndex !== -1) {
             // Aggregate quantity instead of creating a duplicate
             newItems[existingMigratedIndex].quantity += item.quantity;
             newItems[i] = null;
           } else {
+            const uniqueSuffix = Math.random().toString(36).substring(2, 7);
             newItems[i] = {
               ...matchingNewProduct,
-              cartItemId: matchingNewProduct.id,
+              cartItemId: `${matchingNewProduct.id}-${uniqueSuffix}`,
               quantity: item.quantity,
+              description: item.description || '',
               custom_price_override: null, // Reset manual price to use new variant's base price
               discount_override: item.discount_override,
             };
@@ -186,7 +190,7 @@ export default function SwitchQuotePage() {
     }));
 
     // 2. Parse the combined local state and update the store
-    const existingItem = items.find(it => (it.cartItemId || it.id) === product.id);
+    const existingItem = items.find(it => it.id === product.id);
     
     const getQty = () => {
       if (updatedLocal.qty !== undefined) return updatedLocal.qty === '' ? 0 : Math.max(0, parseInt(updatedLocal.qty, 10) || 0);
@@ -225,7 +229,7 @@ export default function SwitchQuotePage() {
         updateItemDiscount(existingItem.cartItemId, newDisc);
       }
     } else if (newQty === 0 && existingItem) {
-      removeItem(existingItem.cartItemId || existingItem.id);
+      removeItem(existingItem.cartItemId);
     }
   };
 
@@ -306,7 +310,7 @@ export default function SwitchQuotePage() {
                   </tr>
                 ) : (
                   visibleProducts.map((product) => {
-                      const cartItem = items.find(it => (it.cartItemId || it.id) === product.id);
+                      const cartItem = items.find(it => it.id === product.id);
                       const qty = cartItem ? cartItem.quantity : 0;
                       
                       const override = cartItem ? cartItem.custom_price_override : null;

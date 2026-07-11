@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
-import { Trash2, Plus, Minus, FileText } from 'lucide-react';
+import { Trash2, Plus, Minus, FileText, Copy } from 'lucide-react';
 import CustomerDetails from './CustomerDetails';
 import QuoteSummary from './QuoteSummary';
 
@@ -13,7 +13,9 @@ export default function Cart() {
     updateItemTaxPaidPrice,
     removeItem,
     globalDiscount,
-    gstIncluded
+    gstIncluded,
+    updateItemDescription,
+    duplicateItem
   } = useQuoteStore();
 
   return (
@@ -56,8 +58,27 @@ export default function Cart() {
               <h4 className="font-semibold text-gray-900 pr-6">
                 <span className="capitalize">{item.name}</span> {item.selected_wattage && <span className="text-blue-600 font-bold ml-1">({item.selected_wattage})</span>}
               </h4>
-              <div className="text-xs text-gray-700 mb-3">Model: {item.model_number || 'N/A'}</div>
+              <div className="text-xs text-gray-700 mb-2">Model: {item.model_number || 'N/A'}</div>
               
+              {/* Room/Note & Duplicate */}
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-[11px] text-gray-600 font-medium whitespace-nowrap">Room/Note:</span>
+                <input 
+                  type="text"
+                  placeholder="e.g. Room 1, Bedroom"
+                  className="border border-gray-300 rounded px-2 py-0.5 text-xs flex-1 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                  value={item.description || ''}
+                  onChange={(e) => updateItemDescription(item.cartItemId || item.id, e.target.value)}
+                />
+                <button
+                  onClick={() => duplicateItem(item.cartItemId || item.id)}
+                  className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200 rounded px-2 py-0.5 flex items-center gap-1 transition-colors font-medium"
+                  title="Duplicate for another room"
+                >
+                  <Copy className="w-3 h-3" /> Duplicate
+                </button>
+              </div>
+
               <div className="flex items-center gap-4 text-sm">
                 {/* Quantity */}
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-50">

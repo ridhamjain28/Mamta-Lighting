@@ -30,7 +30,7 @@ export default function SwitchComparePage() {
       setAllProducts(data || []);
       
       // Initialize first column based on cart
-      const cartProduct = data?.find(p => items.some(it => (it.cartItemId || it.id) === p.id));
+      const cartProduct = data?.find(p => items.some(it => it.id === p.id));
       const initProduct = cartProduct || (data && data[0]);
       
       

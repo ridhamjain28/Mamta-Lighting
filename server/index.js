@@ -214,7 +214,8 @@ app.post('/api/quotation', async (req, res) => {
       
       const productName = item.safe_model ? `${item.safe_name} - ${item.safe_model}` : item.safe_name;
       const baseDisplayName = item.selected_wattage ? `${productName} (${escapeHTML(item.selected_wattage)})` : productName;
-      const displayProductName = (isImageQuote && item.safe_brand) ? `${baseDisplayName} - ${item.safe_brand}` : baseDisplayName;
+      const nameWithDesc = item.description ? `${baseDisplayName} (${escapeHTML(item.description)})` : baseDisplayName;
+      const displayProductName = (isImageQuote && item.safe_brand) ? `${nameWithDesc} - ${item.safe_brand}` : nameWithDesc;
       const unit = escapeHTML(item.unit_type) || 'N';
       const isUnitN = unit === 'N';
       const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;

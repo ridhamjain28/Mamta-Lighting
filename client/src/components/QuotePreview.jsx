@@ -105,7 +105,8 @@ export default function QuotePreview() {
                   
                   const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
                   const baseDisplayName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
-                  const displayProductName = (isImageQuote && item.brands?.name) ? `${baseDisplayName} - ${item.brands.name}` : baseDisplayName;
+                  const nameWithDesc = item.description ? `${baseDisplayName} (${item.description})` : baseDisplayName;
+                  const displayProductName = (isImageQuote && item.brands?.name) ? `${nameWithDesc} - ${item.brands.name}` : nameWithDesc;
                   const unit = item.unit_type || 'N';
                   const isUnitN = unit === 'N';
                   const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
