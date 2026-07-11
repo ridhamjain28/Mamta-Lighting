@@ -5,6 +5,8 @@ import { supabase } from '../supabase';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { getProductRank } from '../utils/productStandardizer';
 import QuoteSummary from './QuoteSummary';
+import CustomerNameInput from './CustomerNameInput';
+import { toTitleCase } from '../utils/textFormatters';
 
 export default function SwitchQuotePage() {
   const {
@@ -249,7 +251,7 @@ export default function SwitchQuotePage() {
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input type="text" spellCheck={true} value={customer.name || ''} onChange={(e) => setCustomer('name', e.target.value)} onBlur={(e) => setCustomer('name', toTitleCase(e.target.value))} placeholder="Customer Name *" className="input-field" />
+          <CustomerNameInput />
           <input type="text" value={customer.phone || ''} onChange={(e) => setCustomer('phone', e.target.value)} placeholder="Phone Number" className="input-field" />
           <input type="text" spellCheck={true} value={customer.project || ''} onChange={(e) => setCustomer('project', e.target.value)} onBlur={(e) => setCustomer('project', toTitleCase(e.target.value))} placeholder="Project Name" className="input-field" />
         </div>

@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import { Loader2, CheckCircle2, ArrowLeft, Plus, Search, Trash2, Edit3, X, XCircle, FileText } from 'lucide-react';
 import { toTitleCase } from '../utils/textFormatters';
 import QuoteSummary from './QuoteSummary';
+import CustomerNameInput from './CustomerNameInput';
 
 export default function WireQuotePage() {
   const {
@@ -221,15 +222,7 @@ export default function WireQuotePage() {
       <div className="bg-white border-b shadow-sm px-5 py-4">
         <h2 className="text-lg font-bold text-gray-800 mb-3">Customer Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input
-            spellCheck={true}
-            type="text"
-            value={customer.name || ''}
-            onChange={(e) => setCustomer('name', e.target.value)}
-            onBlur={(e) => setCustomer('name', toTitleCase(e.target.value))}
-            placeholder="Customer Name *"
-            className="input-field"
-          />
+          <CustomerNameInput />
           <input
             type="text"
             value={customer.phone || ''}
