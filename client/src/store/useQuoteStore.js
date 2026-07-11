@@ -17,6 +17,8 @@ export const useQuoteStore = create((set, get) => ({
   systemMode: null, // 'Image Quote', 'Switch Quote', or 'Wire Quote'
   quoteType: null, // Keeps compatibility with old quoteType references
 
+  customerDirectory: [], // Autocomplete directory for customers
+
   // --- ACTIVE STATE (Spread at root so components don't need to change) ---
   ...defaultState,
 
@@ -66,6 +68,40 @@ export const useQuoteStore = create((set, get) => ({
   }),
 
   setQuoteMetadata: (metadata) => set((state) => ({ ...state, ...metadata })),
+
+  fetchCustomerDirectory: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('quotations')
+        .select('customer_name, phone_number, project_name, created_at')
+        .not('customer_name', 'is', null)
+        .neq('customer_name', '')
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      const seen = new Set();
+      const uniqueCustomers = [];
+      
+      for (const row of (data || [])) {
+        const nameClean = (row.customer_name || '').trim();
+        const phoneClean = (row.phone_number || '').trim();
+        const key = `${nameClean.toLowerCase()}-${phoneClean.toLowerCase()}`;
+        if (nameClean && !seen.has(key)) {
+          seen.add(key);
+          uniqueCustomers.push({
+            name: nameClean,
+            phone: phoneClean,
+            project: (row.project_name || '').trim()
+          });
+        }
+      }
+      
+      set({ customerDirectory: uniqueCustomers });
+    } catch (e) {
+      console.error("Error fetching customer directory:", e);
+    }
+  },
 
   // --- ACTIONS ---
   setCustomer: (field, value) => set((state) => ({
