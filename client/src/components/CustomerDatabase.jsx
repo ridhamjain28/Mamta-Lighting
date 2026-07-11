@@ -483,7 +483,12 @@ export default function CustomerDatabase({ setActiveTab }) {
                             return (
                               <tr key={quote.id} className="hover:bg-gray-50/50 transition-colors group">
                                 <td className="py-3 px-3 text-gray-600 whitespace-nowrap">
-                                  <div className="font-medium">{new Date(quote.updated_at || quote.created_at).toLocaleDateString()}</div>
+                                  <div className="font-medium">
+                                    {new Date(quote.updated_at || quote.created_at).toLocaleDateString()}
+                                    <span className="text-xs text-gray-400 font-normal ml-1.5">
+                                      {new Date(quote.updated_at || quote.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
                                   <div className="text-xs font-mono text-gray-400">ID: {quote.id}</div>
                                 </td>
                                 <td className="py-3 px-3 text-gray-700 font-medium">

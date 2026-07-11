@@ -206,12 +206,14 @@ function App() {
             </>
           )}
 
-          <button 
-            onClick={() => setTimeout(() => startTransition(() => setActiveTab('customers')), 0)}
-            className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'customers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            <Users className="w-4 h-4" /> Customer Database
-          </button>
+          {systemMode === 'Customer Database' && (
+            <button 
+              onClick={() => setTimeout(() => startTransition(() => setActiveTab('customers')), 0)}
+              className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'customers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              <Users className="w-4 h-4" /> Customer Database
+            </button>
+          )}
 
           {systemMode !== 'Customer Database' && (
             <>
