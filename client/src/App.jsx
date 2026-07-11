@@ -48,7 +48,11 @@ function App() {
     setTimeout(() => {
       startTransition(() => {
         setSystemMode(mode);
-        setActiveTab('new-quote');
+        if (mode === 'Customer Database') {
+          setActiveTab('customers');
+        } else {
+          setActiveTab('new-quote');
+        }
       });
     }, 0);
   };
@@ -58,7 +62,7 @@ function App() {
   if (!systemMode) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-        <div className="max-w-4xl w-full">
+        <div className="max-w-6xl w-full">
           <div className="text-center mb-12">
             <div className="inline-flex items-center justify-center bg-blue-600 text-white p-3 rounded-2xl mb-4 shadow-lg">
               <PackageSearch className="w-10 h-10" />
@@ -67,18 +71,20 @@ function App() {
             <p className="text-gray-500 mt-2 text-lg">Select a Quotation System to begin</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Image Quote System Card */}
             <button 
               onClick={() => handleSelectSystem('Image Quote')}
-              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group"
+              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full"
             >
-              <div className="bg-blue-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <PackageSearch className="w-8 h-8 text-blue-600" />
+              <div>
+                <div className="bg-blue-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <PackageSearch className="w-8 h-8 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Image Quotation</h2>
+                <p className="text-gray-500 mb-6 text-base">Build visual quotations with product images for clients. Ideal for decorative lights, fans, and fixtures.</p>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Image Quotation</h2>
-              <p className="text-gray-500 mb-6 text-base">Build visual quotations with product images for clients. Ideal for decorative lights, fans, and fixtures.</p>
-              <span className="text-blue-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all">
+              <span className="text-blue-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">
                 Enter System &rarr;
               </span>
             </button>
@@ -86,14 +92,16 @@ function App() {
             {/* Switch Quote System Card */}
             <button 
               onClick={() => handleSelectSystem('Switch Quote')}
-              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-xl transition-all text-left group"
+              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full"
             >
-              <div className="bg-purple-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <ToggleLeft className="w-8 h-8 text-purple-600" />
+              <div>
+                <div className="bg-purple-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <ToggleLeft className="w-8 h-8 text-purple-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Switch Quotation</h2>
+                <p className="text-gray-500 mb-6 text-base">Spreadsheet-style quotation builder for modular switches, plates, and accessories.</p>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Switch Quotation</h2>
-              <p className="text-gray-500 mb-6 text-base">Spreadsheet-style quotation builder for modular switches, plates, and accessories.</p>
-              <span className="text-purple-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all">
+              <span className="text-purple-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">
                 Enter System &rarr;
               </span>
             </button>
@@ -101,15 +109,34 @@ function App() {
             {/* Wire Quote System Card */}
             <button 
               onClick={() => handleSelectSystem('Wire Quote')}
-              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-xl transition-all text-left group"
+              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full"
             >
-              <div className="bg-green-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Zap className="w-8 h-8 text-green-600" />
+              <div>
+                <div className="bg-green-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Zap className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Wire Quotation</h2>
+                <p className="text-gray-500 mb-6 text-base">Dedicated system for house wires, cables, and conduit pipes with coil-based pricing.</p>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Wire Quotation</h2>
-              <p className="text-gray-500 mb-6 text-base">Dedicated system for house wires, cables, and conduit pipes with coil-based pricing.</p>
-              <span className="text-green-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all">
+              <span className="text-green-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">
                 Enter System &rarr;
+              </span>
+            </button>
+
+            {/* Customer Database Card */}
+            <button 
+              onClick={() => handleSelectSystem('Customer Database')}
+              className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-amber-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full"
+            >
+              <div>
+                <div className="bg-amber-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Users className="w-8 h-8 text-amber-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Customer Database</h2>
+                <p className="text-gray-500 mb-6 text-base">Consolidated customer profiles, search tools, and unified quotation history across all system modes.</p>
+              </div>
+              <span className="text-amber-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">
+                Enter Database &rarr;
               </span>
             </button>
           </div>
@@ -120,6 +147,8 @@ function App() {
 
   const isImageSystem = systemMode === 'Image Quote';
   const isSwitchSystem = systemMode === 'Switch Quote';
+  const isWireSystem = systemMode === 'Wire Quote';
+  const isCustomerDb = systemMode === 'Customer Database';
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col overflow-hidden">
@@ -127,57 +156,80 @@ function App() {
       {/* Top Navigation Bar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 z-30 shadow-sm relative print:hidden">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg text-white ${isImageSystem ? 'bg-blue-600' : isSwitchSystem ? 'bg-purple-600' : 'bg-green-600'}`}>
-            {isImageSystem ? <PackageSearch className="w-6 h-6" /> : isSwitchSystem ? <ToggleLeft className="w-6 h-6" /> : <Zap className="w-6 h-6" />}
+          <div className={`p-2 rounded-lg text-white ${
+            isImageSystem ? 'bg-blue-600' : 
+            isSwitchSystem ? 'bg-purple-600' : 
+            isWireSystem ? 'bg-green-600' : 
+            'bg-amber-600'
+          }`}>
+            {isImageSystem ? <PackageSearch className="w-6 h-6" /> : 
+             isSwitchSystem ? <ToggleLeft className="w-6 h-6" /> : 
+             isWireSystem ? <Zap className="w-6 h-6" /> : 
+             <Users className="w-6 h-6" />}
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900 leading-tight">Mamta Lighting</h1>
-            <p className={`text-xs font-medium tracking-wide uppercase ${isImageSystem ? 'text-blue-600' : isSwitchSystem ? 'text-purple-600' : 'text-green-600'}`}>
-              {systemMode} System
+            <p className={`text-xs font-medium tracking-wide uppercase ${
+              isImageSystem ? 'text-blue-600' : 
+              isSwitchSystem ? 'text-purple-600' : 
+              isWireSystem ? 'text-green-600' : 
+              'text-amber-600'
+            }`}>
+              {isCustomerDb ? 'Customer Database' : `${systemMode} System`}
             </p>
           </div>
         </div>
 
         <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-          <button 
-            onClick={() => setTimeout(() => startTransition(() => setActiveTab('new-quote')), 0)}
-            className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'new-quote' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            <FileText className="w-4 h-4" /> New Quote
-          </button>
-          {systemMode === 'Image Quote' && (
-            <button 
-              onClick={() => setTimeout(() => startTransition(() => setActiveTab('preview')), 0)}
-              className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              <Eye className="w-4 h-4" /> Preview
-            </button>
+          {systemMode !== 'Customer Database' && (
+            <>
+              <button 
+                onClick={() => setTimeout(() => startTransition(() => setActiveTab('new-quote')), 0)}
+                className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'new-quote' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                <FileText className="w-4 h-4" /> New Quote
+              </button>
+              {systemMode === 'Image Quote' && (
+                <button 
+                  onClick={() => setTimeout(() => startTransition(() => setActiveTab('preview')), 0)}
+                  className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  <Eye className="w-4 h-4" /> Preview
+                </button>
+              )}
+              <button 
+                onClick={() => setTimeout(() => startTransition(() => setActiveTab('history')), 0)}
+                className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                <HistoryIcon className="w-4 h-4" /> History
+              </button>
+            </>
           )}
-          <button 
-            onClick={() => setTimeout(() => startTransition(() => setActiveTab('history')), 0)}
-            className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            <HistoryIcon className="w-4 h-4" /> History
-          </button>
+
           <button 
             onClick={() => setTimeout(() => startTransition(() => setActiveTab('customers')), 0)}
             className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'customers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <Users className="w-4 h-4" /> Customer Database
           </button>
-          <button 
-            onClick={() => setTimeout(() => startTransition(() => setActiveTab('management')), 0)}
-            className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'management' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            <Settings className="w-4 h-4" /> Products
-          </button>
-          {systemMode === 'Switch Quote' && (
-            <button 
-              onClick={() => setTimeout(() => startTransition(() => setActiveTab('compare')), 0)}
-              className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'compare' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              <GitCompare className="w-4 h-4" /> Compare
-            </button>
+
+          {systemMode !== 'Customer Database' && (
+            <>
+              <button 
+                onClick={() => setTimeout(() => startTransition(() => setActiveTab('management')), 0)}
+                className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'management' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                <Settings className="w-4 h-4" /> Products
+              </button>
+              {systemMode === 'Switch Quote' && (
+                <button 
+                  onClick={() => setTimeout(() => startTransition(() => setActiveTab('compare')), 0)}
+                  className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'compare' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  <GitCompare className="w-4 h-4" /> Compare
+                </button>
+              )}
+            </>
           )}
         </div>
 
