@@ -10,7 +10,8 @@ import History from './components/History';
 import ToastContainer from './components/ToastContainer';
 import SwitchComparePage from './components/SwitchComparePage';
 import QuotePreview from './components/QuotePreview';
-import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare, Eye } from 'lucide-react';
+import CustomerDatabase from './components/CustomerDatabase';
+import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare, Eye, Users } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
 import { supabase } from './supabase';
 
@@ -159,6 +160,12 @@ function App() {
             <HistoryIcon className="w-4 h-4" /> History
           </button>
           <button 
+            onClick={() => setTimeout(() => startTransition(() => setActiveTab('customers')), 0)}
+            className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'customers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+          >
+            <Users className="w-4 h-4" /> Customer Database
+          </button>
+          <button 
             onClick={() => setTimeout(() => startTransition(() => setActiveTab('management')), 0)}
             className={`px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'management' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
           >
@@ -237,6 +244,14 @@ function App() {
           <div className="w-full flex justify-center p-8 bg-gray-50 overflow-y-auto">
             <div className="max-w-4xl w-full">
               <History setActiveTab={setActiveTab} />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'customers' && (
+          <div className="w-full flex justify-center p-8 bg-gray-50 overflow-y-auto">
+            <div className="max-w-6xl w-full">
+              <CustomerDatabase setActiveTab={setActiveTab} />
             </div>
           </div>
         )}
