@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon, Tag, Bookmark } from 'lucide-react';
+import { toTitleCase } from '../utils/textFormatters';
 
 export default function ProductManagement() {
   const [brands, setBrands] = useState([]);
@@ -100,7 +101,7 @@ export default function ProductManagement() {
   // Metadata CRUD
   const handleAddBrand = async () => {
     if (!newBrand.trim()) return;
-    const { data, error } = await supabase.from('brands').insert([{ name: newBrand.trim() }]).select();
+    const { data, error } = await supabase.from('brands').insert([{ name: toTitleCase(newBrand.trim()) }]).select();
     if (!error && data) { setBrands([...brands, data[0]].sort((a,b)=>a.name.localeCompare(b.name))); setNewBrand(''); }
   };
   const handleDeleteBrand = async (id) => {
@@ -109,9 +110,9 @@ export default function ProductManagement() {
   };
   const handleUpdateBrand = async (id) => {
     if (!editingBrand.name.trim()) return;
-    const { error } = await supabase.from('brands').update({ name: editingBrand.name.trim() }).eq('id', id);
+    const { error } = await supabase.from('brands').update({ name: toTitleCase(editingBrand.name.trim()) }).eq('id', id);
     if (!error) { 
-       setBrands(brands.map(b => b.id === id ? { ...b, name: editingBrand.name.trim() } : b).sort((a,b)=>a.name.localeCompare(b.name))); 
+       setBrands(brands.map(b => b.id === id ? { ...b, name: toTitleCase(editingBrand.name.trim()) } : b).sort((a,b)=>a.name.localeCompare(b.name))); 
        fetchProducts();
     }
     setEditingBrand({ id: null, name: '' });
@@ -178,7 +179,7 @@ export default function ProductManagement() {
 
       // 2. Prepare payload
       const payload = {
-        name: formData.name,
+        name: toTitleCase(formData.name),
         model_number: formData.model_number,
         brand_id: (formData.brand_id && !isNaN(parseInt(formData.brand_id))) ? parseInt(formData.brand_id) : null,
         base_price: parseFloat(formData.base_price) || 0,
@@ -224,14 +225,14 @@ export default function ProductManagement() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Bookmark className="w-5 h-5 text-blue-600"/> Manage Brands</h3>
               <div className="flex gap-2 mb-4">
-                <input type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Brand..." value={newBrand} onChange={e => setNewBrand(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddBrand()} />
+                <input spellCheck={true} type="text" className="input-field py-1.5 text-sm flex-1" placeholder="New Brand..." value={newBrand} onChange={e => setNewBrand(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddBrand()} />
                 <button onClick={handleAddBrand} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition-colors font-medium">Add</button>
               </div>
               <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                 {brands.map(b => (
                   <div key={b.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors group">
                     {editingBrand.id === b.id ? (
-                      <input type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingBrand.name} onChange={e => setEditingBrand({...editingBrand, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateBrand(b.id)} onBlur={() => handleUpdateBrand(b.id)} />
+                      <input spellCheck={true} type="text" autoFocus className="input-field py-1 text-sm bg-white" value={editingBrand.name} onChange={e => setEditingBrand({...editingBrand, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleUpdateBrand(b.id)} onBlur={() => handleUpdateBrand(b.id)} />
                     ) : (
                       <span className="text-sm text-gray-700 font-medium px-1">{b.name}</span>
                     )}
@@ -289,7 +290,7 @@ export default function ProductManagement() {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
-                  <input required type="text" className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <input spellCheck={true} required type="text" className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} onBlur={e => setFormData({...formData, name: toTitleCase(e.target.value)})} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Model Number</label>

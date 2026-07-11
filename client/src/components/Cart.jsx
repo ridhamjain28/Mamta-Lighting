@@ -39,7 +39,7 @@ export default function Cart() {
               price = Number(price);
             }
             const disc = (item.discount_override !== '' && item.discount_override !== null) ? Number(item.discount_override) : (Number(globalDiscount) || 0);
-            const netPrice = Math.ceil(price - (price * (disc / 100)));
+            const netPrice = Math.ceil(Number((price - (price * (disc / 100))).toFixed(10)));
             const lineTotal = netPrice * item.quantity;
             // What the customer actually pays per unit (with GST)
             const computedTaxPaid = gstIncluded ? Math.ceil(netPrice * 1.18) : null;
@@ -54,7 +54,7 @@ export default function Cart() {
               </button>
               
               <h4 className="font-semibold text-gray-900 pr-6">
-                {item.name} {item.selected_wattage && <span className="text-blue-600 font-bold ml-1">({item.selected_wattage})</span>}
+                <span className="capitalize">{item.name}</span> {item.selected_wattage && <span className="text-blue-600 font-bold ml-1">({item.selected_wattage})</span>}
               </h4>
               <div className="text-xs text-gray-700 mb-3">Model: {item.model_number || 'N/A'}</div>
               

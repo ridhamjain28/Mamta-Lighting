@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 import { ArrowLeft, XCircle, Save, Loader2 } from 'lucide-react';
+import { toTitleCase } from '../utils/textFormatters';
 
 export default function CustomerDetails() {
   const { customer, setCustomer, setQuoteMetadata, quoteType, quoteId, clearCart, saveQuoteToDatabase, items } = useQuoteStore();
@@ -54,11 +55,13 @@ export default function CustomerDetails() {
       </div>
       <div className="space-y-3">
         <input 
+          spellCheck={true}
           type="text" 
           placeholder="Customer Name *" 
           className="input-field" 
           value={customer.name}
           onChange={(e) => setCustomer('name', e.target.value)}
+          onBlur={(e) => setCustomer('name', toTitleCase(e.target.value))}
         />
         <div className="flex gap-2">
           <input 
@@ -69,11 +72,13 @@ export default function CustomerDetails() {
             onChange={(e) => setCustomer('phone', e.target.value)}
           />
           <input 
+            spellCheck={true}
             type="text" 
             placeholder="Project Name" 
             className="input-field w-1/2" 
             value={customer.project}
             onChange={(e) => setCustomer('project', e.target.value)}
+            onBlur={(e) => setCustomer('project', toTitleCase(e.target.value))}
           />
         </div>
       </div>

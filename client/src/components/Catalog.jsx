@@ -119,7 +119,7 @@ export default function Catalog() {
                 </div>
                 <div className="p-4 flex-1 flex flex-col">
                   <div className="text-sm text-gray-700 mb-1">{product.brands?.name || 'No Brand'}</div>
-                  <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
+                  <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 capitalize">{product.name}</h3>
                   {product.model_number && (
                     <p className="text-xs text-gray-700 mb-2">Model: {product.model_number}</p>
                   )}

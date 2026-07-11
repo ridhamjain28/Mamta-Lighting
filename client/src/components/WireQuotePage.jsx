@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 import { supabase } from '../supabase';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, ArrowLeft, Plus, Search, Trash2, Edit3, X, XCircle, FileText } from 'lucide-react';
+import { toTitleCase } from '../utils/textFormatters';
 import QuoteSummary from './QuoteSummary';
 
 export default function WireQuotePage() {
@@ -221,9 +222,11 @@ export default function WireQuotePage() {
         <h2 className="text-lg font-bold text-gray-800 mb-3">Customer Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <input
+            spellCheck={true}
             type="text"
             value={customer.name || ''}
             onChange={(e) => setCustomer('name', e.target.value)}
+            onBlur={(e) => setCustomer('name', toTitleCase(e.target.value))}
             placeholder="Customer Name *"
             className="input-field"
           />
@@ -235,9 +238,11 @@ export default function WireQuotePage() {
             className="input-field"
           />
           <input
+            spellCheck={true}
             type="text"
             value={customer.project || ''}
             onChange={(e) => setCustomer('project', e.target.value)}
+            onBlur={(e) => setCustomer('project', toTitleCase(e.target.value))}
             placeholder="Project Name"
             className="input-field"
           />

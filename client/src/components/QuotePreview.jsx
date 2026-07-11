@@ -100,7 +100,7 @@ export default function QuotePreview() {
                   const listPrice = item.base_price || 0;
                   const customOverride = item.custom_price_override !== null ? item.custom_price_override : item.base_price;
                   const discountPercentage = item.discount_override || 0;
-                  const netPrice = Math.ceil(customOverride - (customOverride * (discountPercentage / 100)));
+                  const netPrice = Math.ceil(Number((customOverride - (customOverride * (discountPercentage / 100))).toFixed(10)));
                   const total = netPrice * item.quantity;
                   
                   const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;

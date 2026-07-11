@@ -146,7 +146,7 @@ app.post('/api/quotation', async (req, res) => {
         ? Number(item.custom_price_override) 
         : Number(item.base_price || 0);
       const discountPercentage = Number(item.discount_override || 0);
-      const netPrice = Math.ceil(customOverride - (customOverride * (discountPercentage / 100)));
+      const netPrice = Math.ceil(Number((customOverride - (customOverride * (discountPercentage / 100))).toFixed(10)));
       const quantity = Number(item.quantity || 0);
       const total = netPrice * quantity;
       

@@ -123,12 +123,12 @@ export const useQuoteStore = create((set, get) => ({
       if ((item.cartItemId || item.id) !== cartItemId) return item;
       
       if (taxPaidPrice === '' || taxPaidPrice === null || taxPaidPrice === undefined) {
-        return { ...item, tax_paid_price: null };
+        return { ...item, tax_paid_price: null, discount_override: '' };
       }
       
       const tpp = Number(taxPaidPrice);
       if (isNaN(tpp) || tpp <= 0) {
-        return { ...item, tax_paid_price: null };
+        return { ...item, tax_paid_price: null, discount_override: '' };
       }
       
       // Find pre-GST (net) price such that Math.ceil(net * 1.18) === tpp
@@ -188,7 +188,7 @@ export const useQuoteStore = create((set, get) => ({
       const effectiveDiscount = (item.discount_override !== '' && item.discount_override !== null) 
         ? Number(item.discount_override) 
         : (Number(globalDiscount) || 0);
-      const netPrice = Math.ceil(price - (price * (effectiveDiscount / 100)));
+      const netPrice = Math.ceil(Number((price - (price * (effectiveDiscount / 100))).toFixed(10)));
       return acc + (netPrice * item.quantity);
     }, 0);
 
@@ -277,7 +277,7 @@ export const useQuoteStore = create((set, get) => ({
           const itemDisc = (item.discount_override !== '' && item.discount_override !== null) 
               ? Number(item.discount_override) 
               : (Number(globalDiscount) || 0);
-          const finalPrice = Math.ceil(itemPrice - (itemPrice * itemDisc / 100));
+          const finalPrice = Math.ceil(Number((itemPrice - (itemPrice * itemDisc / 100)).toFixed(10)));
           
           return {
             quotation_id: savedQuote.id,
