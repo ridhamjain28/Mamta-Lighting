@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
 import { useQuoteStore } from '../store/useQuoteStore';
-import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon, Tag, Bookmark } from 'lucide-react';
+import { Plus, Save, Pencil, Trash2, X, Image as ImageIcon, Tag, Bookmark, UploadCloud, ImagePlus, Clipboard } from 'lucide-react';
 import { toTitleCase } from '../utils/textFormatters';
 
 export default function ProductManagement() {
@@ -20,10 +20,14 @@ export default function ProductManagement() {
     description: '',
     variants: [],
     product_type: systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product',
-    unit_type: ''
+    unit_type: '',
+    primary_image_url: null
   };
   const [formData, setFormData] = useState(initialForm);
   const [imageFile, setImageFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const fileInputRef = useRef(null);
 
   const [editingBrand, setEditingBrand] = useState({ id: null, name: '' });
   const [newBrand, setNewBrand] = useState('');
@@ -31,6 +35,38 @@ export default function ProductManagement() {
   const [editingUnitType, setEditingUnitType] = useState({ id: null, name: '' });
   const [newUnitType, setNewUnitType] = useState('');
   const { addToast } = useToastStore();
+
+  // Handle global paste event for images when on this tab
+  useEffect(() => {
+    if (systemMode === 'Manual Quote') return;
+
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') !== -1) {
+          const blob = item.getAsFile();
+          if (blob) {
+            e.preventDefault();
+            const ext = blob.type.split('/')[1] || 'png';
+            const pastedFile = new File([blob], `pasted-image-${Date.now()}.${ext}`, { type: blob.type });
+            
+            setImageFile(pastedFile);
+            setRemoveExistingImage(false);
+            addToast("Image pasted from clipboard!", "success");
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [systemMode, addToast]);
 
   useEffect(() => {
     fetchMetadata();
@@ -58,8 +94,56 @@ export default function ProductManagement() {
   const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setImageFile(e.target.files[0]);
+      setRemoveExistingImage(false);
     }
   };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile.type.startsWith('image/')) {
+        setImageFile(droppedFile);
+        setRemoveExistingImage(false);
+        addToast("Image dropped!", "success");
+      } else {
+        addToast("Please drop a valid image file", "error");
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setRemoveExistingImage(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const previewUrl = useMemo(() => {
+    if (imageFile) {
+      return URL.createObjectURL(imageFile);
+    }
+    if (formData.primary_image_url && !removeExistingImage) {
+      return formData.primary_image_url;
+    }
+    return null;
+  }, [imageFile, formData.primary_image_url, removeExistingImage]);
 
   const handleEdit = (prod) => {
     setEditingId(prod.id);
@@ -71,9 +155,11 @@ export default function ProductManagement() {
       description: prod.description || '',
       variants: prod.variants || [],
       product_type: prod.product_type || (systemMode === 'Manual Quote' ? 'Manual Product' : 'Image Product'),
-      unit_type: prod.unit_type || ''
+      unit_type: prod.unit_type || '',
+      primary_image_url: prod.primary_image_url || null
     });
     setImageFile(null);
+    setRemoveExistingImage(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -81,6 +167,7 @@ export default function ProductManagement() {
     setEditingId(null);
     setFormData(initialForm);
     setImageFile(null);
+    setRemoveExistingImage(false);
   };
 
   const handleDelete = async (id) => {
@@ -173,6 +260,8 @@ export default function ProductManagement() {
         const uploadData = await res.json();
         if (!res.ok) throw new Error(uploadData.error || 'Failed to upload image');
         primary_image_url = uploadData.url;
+      } else if (removeExistingImage) {
+        primary_image_url = null;
       } else if (!editingId) {
         primary_image_url = null;
       }
@@ -329,11 +418,88 @@ export default function ProductManagement() {
                   <input required type="number" step="0.01" className="input-field" value={formData.base_price} onChange={e => setFormData({...formData, base_price: e.target.value})} />
                 </div>
                 {systemMode !== 'Manual Quote' && (
-                  <div>
+                  <div className="md:col-span-2 mt-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {editingId ? 'Update Image (Optional)' : 'Product Image (Optional)'}
+                      {editingId ? 'Product Image (Optional)' : 'Product Image (Optional)'}
                     </label>
-                    <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                    
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      accept="image/*" 
+                      onChange={handleImageChange} 
+                      className="hidden" 
+                    />
+
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                      className={`relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center min-h-[140px] ${
+                        isDragging
+                          ? 'border-blue-500 bg-blue-50/80 scale-[1.01] shadow-md'
+                          : previewUrl
+                          ? 'border-blue-200 bg-blue-50/30 hover:border-blue-400'
+                          : 'border-gray-300 bg-gray-50 hover:bg-gray-100/80 hover:border-blue-400'
+                      }`}
+                    >
+                      {previewUrl ? (
+                        <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-between px-2">
+                          <div className="flex items-center gap-4">
+                            <img 
+                              src={previewUrl} 
+                              alt="Product Preview" 
+                              className="w-20 h-20 object-contain rounded-lg bg-white border border-gray-200 shadow-sm p-1"
+                            />
+                            <div className="text-left">
+                              <p className="text-sm font-semibold text-gray-900">
+                                {imageFile ? imageFile.name : 'Current Image'}
+                              </p>
+                              <p className="text-xs text-gray-700 mt-0.5">
+                                {imageFile ? `${(imageFile.size / 1024).toFixed(1)} KB` : 'Uploaded to product'}
+                              </p>
+                              <span className="inline-flex items-center gap-1 text-[11px] text-blue-700 bg-blue-100 font-medium px-2 py-0.5 rounded mt-1.5">
+                                <ImagePlus className="w-3 h-3" /> Click or drop new image to replace
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2 sm:mt-0" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                              className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
+                            >
+                              Change
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRemoveImage}
+                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Remove image"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 py-2">
+                          <div className="flex items-center justify-center gap-2 text-blue-600">
+                            <UploadCloud className="w-8 h-8" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">
+                              Drag & drop photo here, or <span className="text-blue-600 font-semibold underline">browse</span>
+                            </p>
+                            <p className="text-xs text-gray-700 mt-1">Supports PNG, JPG, JPEG, WebP</p>
+                          </div>
+                          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-full mt-2">
+                            <Clipboard className="w-3.5 h-3.5" />
+                            Press <kbd className="font-mono bg-purple-100 px-1 rounded text-[11px]">Ctrl+V</kbd> or <kbd className="font-mono bg-purple-100 px-1 rounded text-[11px]">Cmd+V</kbd> anywhere to paste copied image
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 
