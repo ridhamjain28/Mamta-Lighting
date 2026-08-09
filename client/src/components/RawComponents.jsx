@@ -25,8 +25,12 @@ export default function RawComponents() {
       .select('*')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
-    if (error) addToast('Failed to load components', 'error');
-    else setComponents(data || []);
+    if (error) {
+      console.error('fetchComponents error:', error);
+      addToast(`Failed to load components: ${error.message}`, 'error');
+    } else {
+      setComponents(data || []);
+    }
     setLoading(false);
   }
 

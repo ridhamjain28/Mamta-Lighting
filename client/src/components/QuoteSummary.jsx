@@ -155,7 +155,8 @@ export default function QuoteSummary() {
       setBuildSent(true);
       addToast(`Job "${title}" sent to Manufacturing!`, 'success');
     } catch (err) {
-      addToast('Failed to send to manufacturing.', 'error');
+      console.error('handleBuild error:', err);
+      addToast(`Failed to send to manufacturing: ${err.message || err}`, 'error');
     } finally {
       setBuildLoading(false);
     }

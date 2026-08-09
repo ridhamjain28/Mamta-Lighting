@@ -193,7 +193,8 @@ export default function History({ setActiveTab, role }) {
       if (error) throw error;
       addToast(`Job "${title}" sent to Manufacturing!`, 'success');
     } catch (err) {
-      addToast('Failed to send to manufacturing.', 'error');
+      console.error('handleBuild error:', err);
+      addToast(`Failed to send to manufacturing: ${err.message || err}`, 'error');
     } finally {
       setBuildingId(null);
     }

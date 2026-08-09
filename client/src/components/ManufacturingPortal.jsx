@@ -66,26 +66,33 @@ export default function ManufacturingPortal({ role }) {
       .from('manufacturing_jobs')
       .select('*')
       .order('created_at', { ascending: false });
-    if (!error) setJobs(data || []);
+    if (error) {
+      console.error('fetchJobs error:', error);
+      addToast(`Failed to load jobs: ${error.message}`, 'error');
+    } else {
+      setJobs(data || []);
+    }
     setLoading(false);
   }
 
   async function fetchRawComponents() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('raw_components')
       .select('*')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
+    if (error) console.error('fetchRawComponents error:', error);
     setRawComponents(data || []);
   }
 
   async function fetchJobComponents(jobId) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('manufacturing_job_components')
       .select('*')
       .eq('job_id', jobId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
+    if (error) console.error('fetchJobComponents error:', error);
     setJobComponents(data || []);
   }
 
@@ -98,7 +105,8 @@ export default function ManufacturingPortal({ role }) {
       .select()
       .single();
     if (error) {
-      addToast('Failed to create job', 'error');
+      console.error('handleCreateJob error:', error);
+      addToast(`Failed to create job: ${error.message}`, 'error');
     } else {
       setJobs(prev => [data, ...prev]);
       setNewJobTitle('');
