@@ -132,7 +132,7 @@ Each manufacturing work order.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | UUID | Primary key |
-| `quotation_id` | UUID | Soft ref to quotations — plain UUID, NO FK constraint |
+| `quotation_id` | TEXT | Reference to quote ID (supports numeric or text quote IDs) |
 | `title` | TEXT | Job title |
 | `notes` | TEXT | General notes |
 | `status` | TEXT | 'Not Started' / 'In Progress' / 'Completed' |
