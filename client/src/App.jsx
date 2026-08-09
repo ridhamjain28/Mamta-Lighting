@@ -112,6 +112,34 @@ function App() {
   const isRawComponents = systemMode === 'Raw Components';
   const isManufacturing = activeTab === 'manufacturing';
 
+  // Manufacturing portal — check BEFORE home screen so card navigation works
+  if (isManufacturing) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <nav className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm print:hidden">
+          <div className="flex items-center gap-2">
+            <div className="bg-orange-100 p-1.5 rounded-lg">
+              <ClipboardList className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-gray-900">Manufacturing Portal</h1>
+              <p className="text-xs font-medium text-orange-600 uppercase tracking-wide">Job Management</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { startTransition(() => { setActiveTab('new-quote'); setSystemMode(null); }); }}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 bg-white border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <ArrowLeftRight className="w-4 h-4" /> Home
+          </button>
+        </nav>
+        <div className="flex-1 overflow-auto">
+          <ManufacturingPortal role="admin" />
+        </div>
+      </div>
+    );
+  }
+
   // Home screen (no system selected)
   if (!systemMode) {
     return (
@@ -211,35 +239,7 @@ function App() {
     );
   }
 
-  // ── MANUFACTURING (from any system, clicked from nav) ─────────────────────
-  if (isManufacturing && !systemMode) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <nav className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="bg-orange-100 p-1.5 rounded-lg">
-              <ClipboardList className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-gray-900 leading-tight">Mamta Lighting</h1>
-              <p className="text-xs font-medium text-orange-600 uppercase tracking-wide">Manufacturing Portal</p>
-            </div>
-          </div>
-          <button
-            onClick={() => { setActiveTab('new-quote'); setSystemMode(null); }}
-            className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 bg-white border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <ArrowLeftRight className="w-4 h-4" />
-            Switch System
-          </button>
-        </nav>
-        <main className="flex-1 flex flex-col overflow-y-auto">
-          <ManufacturingPortal role="admin" />
-        </main>
-        <ToastContainer />
-      </div>
-    );
-  }
+
 
   // ── RAW COMPONENTS ─────────────────────────────────────────────────────────
   if (isRawComponents) {
@@ -357,13 +357,7 @@ function App() {
               </>
             )}
 
-            {/* Manufacturing tab — always visible for admin */}
-            <button
-              onClick={() => { setSystemMode(null); setTimeout(() => startTransition(() => setActiveTab('manufacturing')), 0); }}
-              className="px-3 py-2 rounded-md font-medium text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap text-orange-600 hover:bg-orange-50"
-            >
-              <ClipboardList className="w-4 h-4" /> Manufacturing
-            </button>
+
           </div>
         </div>
 

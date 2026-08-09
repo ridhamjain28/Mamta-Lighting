@@ -122,6 +122,7 @@ Global catalog of raw parts. Admin-managed. Employees pick from this when buildi
 | `id` | UUID | Primary key |
 | `name` | TEXT | e.g. 'Body', 'LED Chip', 'Driver', 'Face Ring' |
 | `description` | TEXT | Optional |
+| `stock_qty` | INT | Current stock quantity in inventory (default 0) |
 | `sort_order` | INT | Display order |
 | `created_at` | TIMESTAMPTZ | Auto |
 

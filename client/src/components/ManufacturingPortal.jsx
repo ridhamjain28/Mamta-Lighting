@@ -151,12 +151,28 @@ export default function ManufacturingPortal({ role }) {
   }
 
   async function handleToggleCollected(comp) {
+    const nextCollected = !comp.is_collected;
     const { error } = await supabase
       .from('manufacturing_job_components')
-      .update({ is_collected: !comp.is_collected })
+      .update({ is_collected: nextCollected })
       .eq('id', comp.id);
+
     if (!error) {
-      setJobComponents(prev => prev.map(c => c.id === comp.id ? { ...c, is_collected: !comp.is_collected } : c));
+      setJobComponents(prev => prev.map(c => c.id === comp.id ? { ...c, is_collected: nextCollected } : c));
+
+      // Auto-update raw_components stock if linked to catalog
+      if (comp.component_id) {
+        const targetRaw = rawComponents.find(r => r.id === comp.component_id);
+        if (targetRaw) {
+          const qty = Number(comp.actual_qty) || Number(comp.planned_qty) || 1;
+          const newStock = nextCollected
+            ? Math.max(0, (targetRaw.stock_qty || 0) - qty)
+            : (targetRaw.stock_qty || 0) + qty;
+
+          await supabase.from('raw_components').update({ stock_qty: newStock }).eq('id', comp.component_id);
+          fetchRawComponents();
+        }
+      }
     }
   }
 
@@ -433,10 +449,15 @@ export default function ManufacturingPortal({ role }) {
                       }`}>
                         {selectedRawComponent?.id === rc.id && <div className="w-1.5 h-1.5 bg-white rounded-full m-auto mt-0.5" />}
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm text-gray-900">{rc.name}</p>
                         {rc.description && <p className="text-xs text-gray-500">{rc.description}</p>}
                       </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold flex-none ${
+                        (rc.stock_qty || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+                      }`}>
+                        Stock: {rc.stock_qty ?? 0}
+                      </span>
                     </button>
                   ))
                 )}
