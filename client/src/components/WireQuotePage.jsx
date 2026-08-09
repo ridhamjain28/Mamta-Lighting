@@ -278,6 +278,7 @@ export default function WireQuotePage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm text-gray-900">
               <thead>
                 <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
@@ -375,6 +376,7 @@ export default function WireQuotePage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

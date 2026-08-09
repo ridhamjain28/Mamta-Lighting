@@ -213,6 +213,7 @@ export default function WireProductManagement() {
             <div className="bg-green-50 px-4 py-2 border-l-4 border-green-500 font-bold text-green-800 text-sm">
               {groupName}
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
                 {items.map(product => (
@@ -251,6 +252,7 @@ export default function WireProductManagement() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ))}
       </div>

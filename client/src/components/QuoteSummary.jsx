@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
-import { FileText, Save, CheckCircle2, Send, Loader2 } from 'lucide-react';
+import { FileText, Save, CheckCircle2, Send, Loader2, ClipboardList } from 'lucide-react';
 import { supabase } from '../supabase';
 
 export default function QuoteSummary() {
@@ -25,7 +25,10 @@ export default function QuoteSummary() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [buildSent, setBuildSent] = useState(false);
+  const [buildLoading, setBuildLoading] = useState(false);
   const { addToast } = useToastStore();
+  const role = sessionStorage.getItem('role');
 
   // Reset success state if any quote parameters change
   useEffect(() => {
@@ -138,6 +141,26 @@ export default function QuoteSummary() {
     }
   };
 
+  const handleBuild = async () => {
+    setBuildLoading(true);
+    try {
+      const { quoteId: qId } = useQuoteStore.getState();
+      const namePart = customer.name || 'Walk-in';
+      const projPart = customer.project ? ` – ${customer.project}` : '';
+      const title = `${namePart}${projPart}`;
+      const { error } = await supabase
+        .from('manufacturing_jobs')
+        .insert([{ quotation_id: qId, title, status: 'Not Started' }]);
+      if (error) throw error;
+      setBuildSent(true);
+      addToast(`Job "${title}" sent to Manufacturing!`, 'success');
+    } catch (err) {
+      addToast('Failed to send to manufacturing.', 'error');
+    } finally {
+      setBuildLoading(false);
+    }
+  };
+
   const handleWhatsApp = () => {
     if (!successData?.pdfUrl) return;
     const greeting = customer.name ? `Hello ${customer.name},\n\n` : `Hello,\n\n`;
@@ -182,6 +205,23 @@ export default function QuoteSummary() {
           >
             <Send className="w-5 h-5" /> Send on WhatsApp
           </button>
+          {role === 'admin' && (
+            <button
+              onClick={handleBuild}
+              disabled={buildLoading || buildSent}
+              className={`w-full font-medium py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 ${
+                buildSent
+                  ? 'bg-green-100 text-green-700 cursor-default'
+                  : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200'
+              }`}
+            >
+              {buildLoading
+                ? <Loader2 className="w-5 h-5 animate-spin" />
+                : <ClipboardList className="w-5 h-5" />
+              }
+              {buildSent ? 'Sent to Manufacturing ✓' : 'Send to Manufacturing'}
+            </button>
+          )}
           <button 
             onClick={() => {
               clearCart();

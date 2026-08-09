@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { FileText, Clock, Search, Trash2, Edit, Copy, RotateCcw } from 'lucide-react';
+import { FileText, Clock, Search, Trash2, Edit, Copy, RotateCcw, ClipboardList, Loader2 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 
-export default function History({ setActiveTab }) {
+export default function History({ setActiveTab, role }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,6 +13,7 @@ export default function History({ setActiveTab }) {
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, quote: null });
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const { addToast } = useToastStore();
+  const [buildingId, setBuildingId] = useState(null);
 
   useEffect(() => {
     fetchQuotes();
@@ -176,6 +177,25 @@ export default function History({ setActiveTab }) {
       setActiveTab('compare');
     } else {
       setActiveTab('new-quote');
+    }
+  };
+
+  const handleBuild = async (quote) => {
+    if (buildingId) return;
+    setBuildingId(quote.id);
+    try {
+      const namePart = quote.customer_name || 'Walk-in';
+      const projPart = quote.project_name ? ` – ${quote.project_name}` : '';
+      const title = `${namePart}${projPart}`;
+      const { error } = await supabase
+        .from('manufacturing_jobs')
+        .insert([{ quotation_id: quote.id, title, status: 'Not Started' }]);
+      if (error) throw error;
+      addToast(`Job "${title}" sent to Manufacturing!`, 'success');
+    } catch (err) {
+      addToast('Failed to send to manufacturing.', 'error');
+    } finally {
+      setBuildingId(null);
     }
   };
 
@@ -359,6 +379,20 @@ export default function History({ setActiveTab }) {
                           <button onClick={() => handleDownloadPdf(quote)} disabled={generatingPdfId === quote.id} className={`p-1.5 rounded-md transition-colors ${generatingPdfId === quote.id ? 'text-gray-400 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50'}`} title="Download PDF">
                             <FileText className="w-4 h-4" />
                           </button>
+                          {role === 'admin' && (
+                            <button
+                              onClick={() => handleBuild(quote)}
+                              disabled={buildingId === quote.id}
+                              title="Send to Manufacturing"
+                              className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-md transition-colors disabled:opacity-50"
+                            >
+                              {buildingId === quote.id
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <ClipboardList className="w-3.5 h-3.5" />
+                              }
+                              Build
+                            </button>
+                          )}
                           <button onClick={() => handleSoftDelete(quote.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Move to Trash">
                             <Trash2 className="w-4 h-4" />
                           </button>

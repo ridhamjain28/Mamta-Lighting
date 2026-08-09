@@ -292,6 +292,7 @@ export default function SwitchQuotePage() {
           <div className="text-center py-12 text-gray-600 font-medium">Please select a brand to view pricing.</div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-200">
                 <tr>
@@ -390,6 +391,7 @@ export default function SwitchQuotePage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
