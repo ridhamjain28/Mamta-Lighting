@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabase';
 import { Loader2, Lock } from 'lucide-react';
 
 async function sha256(message) {
@@ -8,6 +7,12 @@ async function sha256(message) {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+// SHA-256 hashes of the PINs — actual PINs are never stored here
+const HASHES = {
+  admin:    'c1715e13eadea5d085a9c07cc44bb8b81bc689db1c07df0b0ebf307810ecbd29',
+  employee: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',
+};
 
 export default function PinGate({ onAuth }) {
   const [pin, setPin] = useState('');
@@ -29,20 +34,10 @@ export default function PinGate({ onAuth }) {
     try {
       const enteredHash = await sha256(pin.trim());
 
-      const { data, error: fetchError } = await supabase
-        .from('app_settings')
-        .select('key, value')
-        .in('key', ['admin_pin', 'employee_pin']);
-
-      if (fetchError) throw fetchError;
-
-      const settings = {};
-      (data || []).forEach(row => { settings[row.key] = row.value; });
-
-      if (enteredHash === settings['admin_pin']) {
+      if (enteredHash === HASHES.admin) {
         sessionStorage.setItem('role', 'admin');
         onAuth('admin');
-      } else if (enteredHash === settings['employee_pin']) {
+      } else if (enteredHash === HASHES.employee) {
         sessionStorage.setItem('role', 'employee');
         onAuth('employee');
       } else {
@@ -51,8 +46,7 @@ export default function PinGate({ onAuth }) {
         triggerShake();
       }
     } catch (err) {
-      console.error(err);
-      setError('Connection error. Please try again.');
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
