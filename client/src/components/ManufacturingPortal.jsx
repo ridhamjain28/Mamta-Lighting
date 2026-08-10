@@ -161,9 +161,9 @@ export default function ManufacturingPortal({ role }) {
               id,
               name,
               model_number,
-              selected_wattage,
-              color,
-              sub_brand
+              brands (
+                name
+              )
             )
           )
         `)
@@ -491,7 +491,7 @@ export default function ManufacturingPortal({ role }) {
       const id = qi.products?.id || qi.product_id;
       const name = qi.products?.name || 'Unknown Product';
       const key = id ? `product-${id}` : `quote-${normalizeProductName(name)}`;
-      const variation = qi.description || qi.products?.selected_wattage || qi.products?.model_number || qi.products?.color || qi.products?.sub_brand || '';
+      const variation = qi.description || qi.products?.model_number || qi.products?.brands?.name || '';
       if (!products[key]) products[key] = { key, name, variation, qty: 0 };
       products[key].qty += Number(qi.quantity) || 0;
       return products;
