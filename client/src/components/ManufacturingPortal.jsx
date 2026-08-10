@@ -147,6 +147,7 @@ export default function ManufacturingPortal({ role }) {
           project_name,
           quotation_items (
             id,
+            product_id,
             quantity,
             products (
               id,
@@ -446,6 +447,7 @@ export default function ManufacturingPortal({ role }) {
       component_name: mpc.raw_components?.name || 'Unknown Component',
       planned_qty: (mpc.default_qty || 1) * multiplier,
       is_collected: false,
+      product_id: selectedMfgProduct.id,
       product_name: selectedMfgProduct.name,
       sort_order: maxOrder + idx + 1
     }));
@@ -472,17 +474,22 @@ export default function ManufacturingPortal({ role }) {
     const extraComps = [];
 
     jobComponents.forEach(comp => {
+      let productKey = comp.product_id ? `product-${comp.product_id}` : null;
       let prodName = comp.product_name;
-      if (!prodName && comp.note && comp.note.startsWith('Auto-linked from product "')) {
+      if (!productKey && !prodName && comp.note && comp.note.startsWith('Auto-linked from product "')) {
         const match = comp.note.match(/Auto-linked from product "([^"]+)"/);
         if (match) prodName = match[1];
       }
 
-      if (prodName) {
-        if (!grouped[prodName]) {
-          grouped[prodName] = [];
+      // Older jobs did not save product_id. Keep them grouped by their saved
+      // product name, while all new jobs use the unambiguous product ID.
+      if (!productKey && prodName) productKey = `legacy-${prodName}`;
+
+      if (productKey) {
+        if (!grouped[productKey]) {
+          grouped[productKey] = [];
         }
-        grouped[prodName].push(comp);
+        grouped[productKey].push(comp);
       } else {
         extraComps.push(comp);
       }
@@ -491,9 +498,11 @@ export default function ManufacturingPortal({ role }) {
     // A product can appear on more than one quote line (for example after a
     // duplicated line). Show it once and use the total as its build quantity.
     const quoteProducts = Object.values(quoteItems.reduce((products, qi) => {
+      const id = qi.products?.id || qi.product_id;
       const name = qi.products?.name || 'Unknown Product';
-      if (!products[name]) products[name] = { name, qty: 0 };
-      products[name].qty += Number(qi.quantity) || 0;
+      const key = id ? `product-${id}` : `legacy-${name}`;
+      if (!products[key]) products[key] = { key, name, qty: 0 };
+      products[key].qty += Number(qi.quantity) || 0;
       return products;
     }, {}));
 
@@ -501,7 +510,8 @@ export default function ManufacturingPortal({ role }) {
 
     if (quoteProducts.length > 0) {
       quoteProducts.forEach(qp => {
-        const comps = grouped[qp.name] || [];
+        const componentKey = grouped[qp.key] ? qp.key : `legacy-${qp.name}`;
+        const comps = grouped[componentKey] || [];
         // Sort components strictly by sort_order
         const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         finalGroups.push({
@@ -510,16 +520,15 @@ export default function ManufacturingPortal({ role }) {
           components: sortedComps,
           isQuoteProduct: true
         });
-        delete grouped[qp.name];
+        delete grouped[componentKey];
       });
     }
 
     // Any remaining custom loaded template products
-    Object.keys(grouped).forEach(name => {
-      const comps = grouped[name];
+    Object.entries(grouped).forEach(([key, comps]) => {
       const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       finalGroups.push({
-        name,
+        name: comps[0]?.product_name || key,
         qty: null,
         components: sortedComps,
         isQuoteProduct: false
@@ -739,36 +748,42 @@ export default function ManufacturingPortal({ role }) {
     // Group the components to calculate progress by products completed
     const groupedForProgress = {};
     jobComponents.forEach(comp => {
+      let productKey = comp.product_id ? `product-${comp.product_id}` : null;
       let prodName = comp.product_name;
-      if (!prodName && comp.note && comp.note.startsWith('Auto-linked from product "')) {
+      if (!productKey && !prodName && comp.note && comp.note.startsWith('Auto-linked from product "')) {
         const match = comp.note.match(/Auto-linked from product "([^"]+)"/);
         if (match) prodName = match[1];
       }
-      if (prodName) {
-        if (!groupedForProgress[prodName]) groupedForProgress[prodName] = [];
-        groupedForProgress[prodName].push(comp);
+      if (!productKey && prodName) productKey = `legacy-${prodName}`;
+      if (productKey) {
+        if (!groupedForProgress[productKey]) groupedForProgress[productKey] = [];
+        groupedForProgress[productKey].push(comp);
       }
     });
 
-    const quoteProductsForProgress = quoteItems.map(qi => ({
-      name: qi.products?.name || 'Unknown Product',
-      qty: qi.quantity
-    }));
+    const quoteProductsForProgress = Object.values(quoteItems.reduce((products, qi) => {
+      const id = qi.products?.id || qi.product_id;
+      const name = qi.products?.name || 'Unknown Product';
+      const key = id ? `product-${id}` : `legacy-${name}`;
+      if (!products[key]) products[key] = { key, name };
+      return products;
+    }, {}));
 
     const finalGroupsForProgress = [];
     if (quoteProductsForProgress.length > 0) {
       quoteProductsForProgress.forEach(qp => {
+        const componentKey = groupedForProgress[qp.key] ? qp.key : `legacy-${qp.name}`;
         finalGroupsForProgress.push({
           name: qp.name,
-          components: groupedForProgress[qp.name] || []
+          components: groupedForProgress[componentKey] || []
         });
-        delete groupedForProgress[qp.name];
+        delete groupedForProgress[componentKey];
       });
     }
-    Object.keys(groupedForProgress).forEach(name => {
+    Object.entries(groupedForProgress).forEach(([key, components]) => {
       finalGroupsForProgress.push({
-        name,
-        components: groupedForProgress[name]
+        name: components[0]?.product_name || key,
+        components
       });
     });
 

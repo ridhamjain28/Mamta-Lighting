@@ -378,18 +378,23 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
         let hasProduct = false;
 
         // Check if there are components for this product in this job
-        const { data: existingComps, error: existErr } = await supabase
+        const { data: jobComps, error: existErr } = await supabase
           .from('manufacturing_job_components')
           .select('*')
-          .eq('job_id', job.id)
-          .eq('product_name', productName);
+          .eq('job_id', job.id);
 
         if (existErr) {
           console.error('Error fetching existing components for job:', job.id, existErr);
           continue;
         }
 
-        if (existingComps && existingComps.length > 0) {
+        // New rows are matched by product ID. The name fallback keeps jobs
+        // created before product_id was introduced working as well.
+        const existingComps = (jobComps || []).filter(comp =>
+          comp.product_id === productId || (!comp.product_id && comp.product_name === productName)
+        );
+
+        if (existingComps.length > 0) {
           hasProduct = true;
           for (const ec of existingComps) {
             const rc = recipeComps.find(r => r.component_id === ec.component_id);
@@ -444,7 +449,8 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
               updates.push({
                 id: existing.id,
                 planned_qty: plannedQty,
-                component_name: compName
+                component_name: compName,
+                product_id: productId
               });
             }
           } else {
@@ -454,6 +460,7 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
               component_name: compName,
               planned_qty: plannedQty,
               is_collected: false,
+              product_id: productId,
               product_name: productName,
               sort_order: 1000 + idx
             });

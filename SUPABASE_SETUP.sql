@@ -17,6 +17,15 @@ CREATE TABLE IF NOT EXISTS manufacturing_product_components (
 -- 3. Add product_name grouping support to manufacturing_job_components
 ALTER TABLE manufacturing_job_components ADD COLUMN IF NOT EXISTS product_name TEXT;
 
+-- 3a. Store the actual finished-product ID with each job component. This keeps
+-- components from different products separate even when they share a name or
+-- raw components (e.g. Product A: a,b,c and Product B: a,c,d).
+ALTER TABLE manufacturing_job_components
+    ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS manufacturing_job_components_job_product_idx
+    ON manufacturing_job_components (job_id, product_id);
+
 -- 4. Add completed_by tracking to manufacturing_jobs
 ALTER TABLE manufacturing_jobs ADD COLUMN IF NOT EXISTS completed_by TEXT;
 
