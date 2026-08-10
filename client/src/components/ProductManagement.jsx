@@ -383,7 +383,7 @@ export default function ProductManagement() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
                   <input spellCheck={true} required type="text" className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} onBlur={e => setFormData({...formData, name: toTitleCase(e.target.value)})} />
@@ -394,7 +394,7 @@ export default function ProductManagement() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
                   <select className="input-field" value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})}>
@@ -419,13 +419,13 @@ export default function ProductManagement() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (₹) *</label>
                   <input required type="number" step="0.01" className="input-field" value={formData.base_price} onChange={e => setFormData({...formData, base_price: e.target.value})} />
                 </div>
                 {systemMode !== 'Manual Quote' && (
-                  <div className="md:col-span-2 mt-2">
+                  <div className="col-span-1 md:col-span-2 mt-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {editingId ? 'Product Image (Optional)' : 'Product Image (Optional)'}
                     </label>
@@ -511,7 +511,7 @@ export default function ProductManagement() {
                 )}
                 
                 {/* Product Variations */}
-                <div className="md:col-span-2 mt-4 p-5 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="col-span-1 md:col-span-2 mt-4 p-5 bg-gray-50 border border-gray-200 rounded-lg">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="font-bold text-gray-800">Product Variations</h3>
