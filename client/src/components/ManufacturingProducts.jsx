@@ -4,7 +4,8 @@ import { useToastStore } from '../store/useToastStore';
 import { Plus, Pencil, Trash2, Save, X, Loader2, Package, Boxes, Settings, Bookmark, Tag } from 'lucide-react';
 import { toTitleCase } from '../utils/textFormatters';
 
-export default function ManufacturingProducts() {
+export default function ManufacturingProducts({ role = 'admin' }) {
+  const isEmployee = role === 'employee';
   const { addToast } = useToastStore();
   const [products, setProducts] = useState([]);
   const [rawComponents, setRawComponents] = useState([]);
@@ -263,13 +264,15 @@ export default function ManufacturingProducts() {
             <p className="text-sm text-gray-500">Manage all finished lighting/strip products and link their assembly parts</p>
           </div>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Product
-        </button>
+        {!isEmployee && (
+          <button
+            onClick={handleOpenAdd}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Product
+          </button>
+        )}
       </div>
 
       {/* Product List */}
@@ -298,22 +301,24 @@ export default function ManufacturingProducts() {
                       Price: ₹{prod.base_price}
                     </span>
                   </div>
-                  <div className="flex gap-1 flex-none">
-                    <button
-                      onClick={() => handleOpenEdit(prod)}
-                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition-all"
-                      title="Edit Product"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(prod)}
-                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition-all"
-                      title="Delete Product"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {!isEmployee && (
+                    <div className="flex gap-1 flex-none">
+                      <button
+                        onClick={() => handleOpenEdit(prod)}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition-all"
+                        title="Edit Product"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(prod)}
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition-all"
+                        title="Delete Product"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 {prod.description && <p className="text-xs text-gray-500 mb-4">{prod.description}</p>}
                 

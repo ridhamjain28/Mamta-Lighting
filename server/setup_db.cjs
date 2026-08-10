@@ -54,16 +54,9 @@ async function runSetup() {
           created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
-      CREATE TABLE IF NOT EXISTS manufacturing_products (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          name TEXT NOT NULL,
-          description TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
       CREATE TABLE IF NOT EXISTS manufacturing_product_components (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          product_id UUID REFERENCES manufacturing_products(id) ON DELETE CASCADE,
+          product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
           component_id UUID REFERENCES raw_components(id) ON DELETE CASCADE,
           default_qty NUMERIC DEFAULT 1,
           created_at TIMESTAMPTZ DEFAULT NOW()
@@ -73,7 +66,7 @@ async function runSetup() {
     await client.query(setupSql);
     console.log('Tables created successfully.');
     
-    const tables = ['manufacturing_jobs', 'manufacturing_job_components', 'manufacturing_products', 'manufacturing_product_components'];
+    const tables = ['manufacturing_jobs', 'manufacturing_job_components', 'manufacturing_product_components'];
     for (const table of tables) {
         try {
             await client.query(`ALTER PUBLICATION supabase_realtime ADD TABLE ${table};`);

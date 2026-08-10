@@ -786,7 +786,7 @@ export default function ManufacturingPortal({ role }) {
 
       {portalTab === 'products' && (
         <div className="flex-1 p-4 overflow-y-auto">
-          <ManufacturingProducts />
+          <ManufacturingProducts role={role} />
         </div>
       )}
 

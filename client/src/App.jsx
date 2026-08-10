@@ -14,7 +14,8 @@ import CustomerDatabase from './components/CustomerDatabase';
 import PinGate from './components/PinGate';
 import ManufacturingPortal from './components/ManufacturingPortal';
 import RawComponents from './components/RawComponents';
-import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare, Eye, Users, ClipboardList, Boxes, LogOut } from 'lucide-react';
+import ProductsDatabase from './components/ManufacturingProducts';
+import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare, Eye, Users, ClipboardList, Boxes, LogOut, Package } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
 
 function App() {
@@ -110,6 +111,7 @@ function App() {
   const isWireSystem = systemMode === 'Wire Quote';
   const isCustomerDb = systemMode === 'Customer Database';
   const isRawComponents = systemMode === 'Raw Components';
+  const isProductsDb = systemMode === 'Products Database';
   const isManufacturing = activeTab === 'manufacturing';
 
   // Manufacturing portal — check BEFORE home screen so card navigation works
@@ -214,6 +216,18 @@ function App() {
               <span className="text-slate-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">Manage Parts →</span>
             </button>
 
+            {/* Products Database */}
+            <button onClick={() => handleSelectSystem('Products Database')} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-400 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full">
+              <div>
+                <div className="bg-blue-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Package className="w-8 h-8 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Products Database</h2>
+                <p className="text-gray-500 mb-6 text-base">Central database for finished products, variations, and raw components mapping.</p>
+              </div>
+              <span className="text-blue-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">Manage Products →</span>
+            </button>
+
             {/* Manufacturing Portal */}
             <button onClick={() => { setSystemMode(null); setTimeout(() => { startTransition(() => { setActiveTab('manufacturing'); }); }, 0); }} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-orange-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full">
               <div>
@@ -264,6 +278,35 @@ function App() {
         </nav>
         <main className="flex-1 overflow-y-auto p-6">
           <RawComponents />
+        </main>
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  // ── PRODUCTS DATABASE ──────────────────────────────────────────────────────
+  if (isProductsDb) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm print:hidden">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 p-2 rounded-lg">
+              <Package className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">Mamta Lighting</h1>
+              <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Products Database</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSystemMode(null)}
+            className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 bg-white border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <ArrowLeftRight className="w-4 h-4" /> Switch System
+          </button>
+        </nav>
+        <main className="flex-1 overflow-y-auto p-6">
+          <ProductsDatabase role="admin" />
         </main>
         <ToastContainer />
       </div>

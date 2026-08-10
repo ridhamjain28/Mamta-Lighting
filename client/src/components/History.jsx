@@ -187,10 +187,64 @@ export default function History({ setActiveTab, role }) {
       const namePart = quote.customer_name || 'Walk-in';
       const projPart = quote.project_name ? ` – ${quote.project_name}` : '';
       const title = `${namePart}${projPart}`;
-      const { error } = await supabase
+      
+      // 1. Insert manufacturing job
+      const { data: newJob, error } = await supabase
         .from('manufacturing_jobs')
-        .insert([{ quotation_id: quote?.id ? String(quote.id) : null, title, status: 'Not Started' }]);
+        .insert([{ quotation_id: quote?.id ? String(quote.id) : null, title, status: 'Not Started' }])
+        .select()
+        .single();
       if (error) throw error;
+
+      // 2. Fetch the recipes for the products present in this quote
+      const items = quote.quotation_items || [];
+      const productIds = items.map(qi => qi.products?.id || qi.product_id).filter(Boolean);
+
+      if (productIds.length > 0) {
+        const { data: recipes, error: recipeErr } = await supabase
+          .from('manufacturing_product_components')
+          .select(`
+            *,
+            raw_components (
+              id,
+              name
+            )
+          `)
+          .in('product_id', productIds);
+        
+        if (recipeErr) throw recipeErr;
+
+        if (recipes && recipes.length > 0) {
+          const jobComponents = [];
+          let sortOrder = 0;
+
+          for (const qi of items) {
+            const prodId = qi.products?.id || qi.product_id;
+            const productRecipes = recipes.filter(r => r.product_id === prodId);
+
+            for (const recipe of productRecipes) {
+              const qtyNeeded = (Number(qi.quantity) || 0) * (Number(recipe.default_qty) || 1);
+              jobComponents.push({
+                job_id: newJob.id,
+                component_id: recipe.component_id,
+                component_name: recipe.raw_components?.name || 'Unknown Component',
+                planned_qty: qtyNeeded,
+                is_collected: false,
+                note: `Auto-linked from product "${qi.products?.name || 'Unknown'}" (Qty: ${qi.quantity})`,
+                sort_order: sortOrder++
+              });
+            }
+          }
+
+          if (jobComponents.length > 0) {
+            const { error: componentInsertErr } = await supabase
+              .from('manufacturing_job_components')
+              .insert(jobComponents);
+            if (componentInsertErr) throw componentInsertErr;
+          }
+        }
+      }
+
       addToast(`Job "${title}" sent to Manufacturing!`, 'success');
     } catch (err) {
       console.error('handleBuild error:', err);
