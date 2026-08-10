@@ -150,7 +150,7 @@ export default function QuoteSummary() {
       const title = `${namePart}${projPart}`;
       const { error } = await supabase
         .from('manufacturing_jobs')
-        .insert([{ quotation_id: qId, title, status: 'Not Started' }]);
+        .insert([{ quotation_id: qId ? String(qId) : null, title, status: 'Not Started' }]);
       if (error) throw error;
       setBuildSent(true);
       addToast(`Job "${title}" sent to Manufacturing!`, 'success');

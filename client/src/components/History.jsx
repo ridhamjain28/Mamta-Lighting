@@ -189,7 +189,7 @@ export default function History({ setActiveTab, role }) {
       const title = `${namePart}${projPart}`;
       const { error } = await supabase
         .from('manufacturing_jobs')
-        .insert([{ quotation_id: quote.id, title, status: 'Not Started' }]);
+        .insert([{ quotation_id: quote?.id ? String(quote.id) : null, title, status: 'Not Started' }]);
       if (error) throw error;
       addToast(`Job "${title}" sent to Manufacturing!`, 'success');
     } catch (err) {
