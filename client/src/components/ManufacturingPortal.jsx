@@ -737,14 +737,15 @@ export default function ManufacturingPortal({ role }) {
     const totalProducts = finalGroupsForProgress.length;
     const completedProducts = finalGroupsForProgress.filter(g => g.components.length > 0 && g.components.every(c => c.is_collected)).length;
 
+    const totalCount = jobComponents.length;
+    const collectedCount = jobComponents.filter(c => c.is_collected).length;
+
     let progressPct = 0;
     let progressLabel = '';
     if (totalProducts > 0) {
       progressPct = Math.round((completedProducts / totalProducts) * 100);
       progressLabel = `${completedProducts}/${totalProducts} products completed`;
     } else {
-      const totalCount = jobComponents.length;
-      const collectedCount = jobComponents.filter(c => c.is_collected).length;
       progressPct = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0;
       progressLabel = `${collectedCount}/${totalCount} parts collected`;
     }
