@@ -337,7 +337,7 @@ export default function History({ setActiveTab, role }) {
       q.phone_number?.includes(search) ||
       q.project_name?.toLowerCase().includes(search) ||
       q.quote_type?.toLowerCase().includes(search) ||
-      new Date(q.created_at).toLocaleDateString().includes(search) ||
+      new Date(q.created_at).toLocaleDateString('en-GB').includes(search) ||
       String(q.id).includes(search) ||
       itemsMatch
     );
@@ -404,7 +404,7 @@ export default function History({ setActiveTab, role }) {
                 <tr key={quote.id} className="hover:bg-gray-50 transition-colors group">
                   <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
                     <div>
-                      {new Date(quote.updated_at || quote.created_at).toLocaleDateString()}
+                      {new Date(quote.updated_at || quote.created_at).toLocaleDateString('en-GB')}
                       <span className="text-xs text-gray-400 font-normal ml-1.5">
                         {new Date(quote.updated_at || quote.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>

@@ -1127,7 +1127,7 @@ export default function ManufacturingPortal({ role }) {
                   <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-2">
                     <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
                       <Clock className="w-3.5 h-3.5" />
-                      {new Date(job.updated_at).toLocaleDateString()}
+                      {new Date(job.updated_at).toLocaleDateString('en-GB')}
                     </span>
                     <div className="flex items-center gap-2">
                       {role === 'admin' && (
@@ -1199,7 +1199,7 @@ export default function ManufacturingPortal({ role }) {
                   <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-2.5">
                     <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
                       <Clock className="w-3.5 h-3.5" />
-                      {new Date(job.updated_at).toLocaleDateString()}
+                      {new Date(job.updated_at).toLocaleDateString('en-GB')}
                     </span>
                     <div className="flex items-center gap-2">
                       {!job.approved && (

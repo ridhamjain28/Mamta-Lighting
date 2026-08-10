@@ -47,6 +47,9 @@ function App() {
     if (authRole === 'employee') {
       // Employee goes straight to manufacturing, no system select needed
       setActiveTab('manufacturing');
+    } else {
+      // Admin always goes to home (system selection screen) when logged in
+      setSystemMode(null);
     }
   };
 

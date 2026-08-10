@@ -930,17 +930,37 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
               <button onClick={() => setShowLinkModal(false)} className="text-xl text-gray-400 hover:text-gray-600">×</button>
             </div>
 
-            <div className="relative flex-none mb-3">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
-                <Search className="w-3.5 h-3.5" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={dbSearchQuery}
-                onChange={e => setDbSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
+            <div className="relative flex-none mb-3 flex gap-2 items-center">
+              <div className="relative flex-1">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                  <Search className="w-3.5 h-3.5" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={dbSearchQuery}
+                  onChange={e => setDbSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+              {dbProducts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const filtered = dbProducts.filter(p => p.name.toLowerCase().includes(dbSearchQuery.toLowerCase()));
+                    const filteredIds = filtered.map(p => p.id);
+                    const allSelected = filteredIds.every(id => selectedDbIds.includes(id));
+                    if (allSelected) {
+                      setSelectedDbIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                    } else {
+                      setSelectedDbIds(prev => Array.from(new Set([...prev, ...filteredIds])));
+                    }
+                  }}
+                  className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-bold transition-colors whitespace-nowrap"
+                >
+                  {dbProducts.filter(p => p.name.toLowerCase().includes(dbSearchQuery.toLowerCase())).map(p => p.id).every(id => selectedDbIds.includes(id)) ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
             </div>
 
             <div className="overflow-y-auto flex-1 space-y-2 pr-1 min-h-[200px]">
