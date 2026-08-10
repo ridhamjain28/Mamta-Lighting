@@ -230,6 +230,7 @@ export default function History({ setActiveTab, role }) {
                 component_name: recipe.raw_components?.name || 'Unknown Component',
                 planned_qty: qtyNeeded,
                 is_collected: false,
+                product_name: qi.products?.name || 'Unknown Product',
                 note: `Auto-linked from product "${qi.products?.name || 'Unknown'}" (Qty: ${qi.quantity})`,
                 sort_order: sortOrder++
               });

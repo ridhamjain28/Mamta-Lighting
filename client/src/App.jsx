@@ -306,7 +306,7 @@ function App() {
           </button>
         </nav>
         <main className="flex-1 overflow-y-auto p-6">
-          <ProductsDatabase role="admin" />
+          <ProductsDatabase role="admin" isGlobal={true} />
         </main>
         <ToastContainer />
       </div>

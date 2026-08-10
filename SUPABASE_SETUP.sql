@@ -14,5 +14,15 @@ CREATE TABLE IF NOT EXISTS manufacturing_product_components (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Enable Realtime for the link table
+-- 3. Add product_name grouping support to manufacturing_job_components
+ALTER TABLE manufacturing_job_components ADD COLUMN IF NOT EXISTS product_name TEXT;
+
+-- 4. Add completed_by tracking to manufacturing_jobs
+ALTER TABLE manufacturing_jobs ADD COLUMN IF NOT EXISTS completed_by TEXT;
+
+-- 5. Add visibility filters to products table
+ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_image_quote BOOLEAN DEFAULT TRUE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_manufacturing BOOLEAN DEFAULT FALSE;
+
+-- 6. Enable Realtime for the link table
 ALTER PUBLICATION supabase_realtime ADD TABLE manufacturing_product_components;

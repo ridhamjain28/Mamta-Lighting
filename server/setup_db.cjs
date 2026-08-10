@@ -37,6 +37,7 @@ async function runSetup() {
           title TEXT NOT NULL,
           notes TEXT,
           status TEXT DEFAULT 'Not Started',
+          completed_by TEXT,
           created_at TIMESTAMPTZ DEFAULT NOW(),
           updated_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -49,6 +50,7 @@ async function runSetup() {
           planned_qty NUMERIC,
           actual_qty NUMERIC,
           note TEXT,
+          product_name TEXT,
           is_collected BOOLEAN DEFAULT FALSE,
           sort_order INT,
           created_at TIMESTAMPTZ DEFAULT NOW()
@@ -61,10 +63,13 @@ async function runSetup() {
           default_qty NUMERIC DEFAULT 1,
           created_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_image_quote BOOLEAN DEFAULT TRUE;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_manufacturing BOOLEAN DEFAULT FALSE;
     `;
     
     await client.query(setupSql);
-    console.log('Tables created successfully.');
+    console.log('Tables created and products table updated successfully.');
     
     const tables = ['manufacturing_jobs', 'manufacturing_job_components', 'manufacturing_product_components'];
     for (const table of tables) {

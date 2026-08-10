@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
-import { Plus, Pencil, Trash2, Save, X, Loader2, Package, Boxes, Settings, Bookmark, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, Loader2, Package, Boxes, Settings, Bookmark, Tag, Search } from 'lucide-react';
 import { toTitleCase } from '../utils/textFormatters';
+import ComponentSelect from './ComponentSelect';
 
-export default function ManufacturingProducts({ role = 'admin' }) {
+export default function ManufacturingProducts({ role = 'admin', isGlobal = true }) {
   const isEmployee = role === 'employee';
   const { addToast } = useToastStore();
   const [products, setProducts] = useState([]);
@@ -12,6 +13,7 @@ export default function ManufacturingProducts({ role = 'admin' }) {
   const [brands, setBrands] = useState([]);
   const [unitTypes, setUnitTypes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Modal controls
   const [showModal, setShowModal] = useState(false);
@@ -28,16 +30,45 @@ export default function ManufacturingProducts({ role = 'admin' }) {
   const [selectedComponents, setSelectedComponents] = useState([]); // Array of { component_id, default_qty }
   const [saving, setSaving] = useState(false);
 
+  // Visibility Flags
+  const [showInImageQuote, setShowInImageQuote] = useState(true);
+  const [showInManufacturing, setShowInManufacturing] = useState(false);
+
+  // Inline raw component modal state
+  const [showNewComponentModal, setShowNewComponentModal] = useState(false);
+  const [newComponentName, setNewComponentName] = useState('');
+  const [newComponentDesc, setNewComponentDesc] = useState('');
+  const [newComponentStock, setNewComponentStock] = useState('');
+  const [newComponentUnit, setNewComponentUnit] = useState('pcs');
+  const [newComponentCost, setNewComponentCost] = useState('');
+  const [activeRecipeRowIndex, setActiveRecipeRowIndex] = useState(null);
+
+  // Undo queue state & ref
+  const [undoQueue, setUndoQueue] = useState([]);
+  const undoQueueRef = useRef([]);
+
+  useEffect(() => {
+    undoQueueRef.current = undoQueue;
+  }, [undoQueue]);
+
   useEffect(() => {
     fetchProducts();
     fetchRawComponents();
     fetchMetadata();
+
+    return () => {
+      // Finalize all deletions on unmount
+      undoQueueRef.current.forEach(uq => {
+        clearTimeout(uq.timerId);
+        finalizeDeletion(uq.item);
+      });
+    };
   }, []);
 
   async function fetchProducts() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('products')
         .select(`
           *,
@@ -53,8 +84,13 @@ export default function ManufacturingProducts({ role = 'admin' }) {
             )
           )
         `)
-        .or('product_type.eq.Image Product,product_type.is.null') // Only fetch Image Products (like in Image Quote)
-        .order('created_at', { ascending: false });
+        .or('product_type.eq.Image Product,product_type.is.null');
+
+      if (!isGlobal) {
+        query = query.eq('show_in_manufacturing', true);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setProducts(data || []);
@@ -100,6 +136,8 @@ export default function ManufacturingProducts({ role = 'admin' }) {
     setDescription('');
     setVariants([]);
     setSelectedComponents([]);
+    setShowInImageQuote(true);
+    setShowInManufacturing(isGlobal ? false : true);
     setShowModal(true);
   };
 
@@ -112,6 +150,8 @@ export default function ManufacturingProducts({ role = 'admin' }) {
     setBasePrice(prod.base_price || '');
     setDescription(prod.description || '');
     setVariants(prod.variants || []);
+    setShowInImageQuote(prod.show_in_image_quote ?? true);
+    setShowInManufacturing(prod.show_in_manufacturing ?? false);
     
     const comps = (prod.manufacturing_product_components || []).map(mpc => ({
       component_id: mpc.component_id,
@@ -122,12 +162,8 @@ export default function ManufacturingProducts({ role = 'admin' }) {
   };
 
   const handleAddComponentLine = () => {
-    if (rawComponents.length === 0) {
-      addToast('Add raw components first!', 'error');
-      return;
-    }
-    const available = rawComponents.find(rc => !selectedComponents.some(sc => sc.component_id === rc.id)) || rawComponents[0];
-    setSelectedComponents([...selectedComponents, { component_id: available.id, default_qty: 1 }]);
+    // Start with blank component line
+    setSelectedComponents([...selectedComponents, { component_id: '', default_qty: 1 }]);
   };
 
   const handleRemoveComponentLine = (idx) => {
@@ -163,9 +199,13 @@ export default function ManufacturingProducts({ role = 'admin' }) {
       addToast('Base price is required', 'error');
       return;
     }
+    if (selectedComponents.some(sc => !sc.component_id)) {
+      addToast('Please select a component for all recipe rows', 'error');
+      return;
+    }
+
     setSaving(true);
 
-    // Safe brand ID parser matching App DB
     const parsedBrandId = brandId ? (isNaN(Number(brandId)) ? brandId : Number(brandId)) : null;
 
     const payload = {
@@ -176,7 +216,9 @@ export default function ManufacturingProducts({ role = 'admin' }) {
       base_price: parseFloat(basePrice) || 0,
       description: description.trim() || null,
       variants: variants.map(v => ({ name: v.name.trim(), price: parseFloat(v.price) || 0 })),
-      product_type: 'Image Product' // Match "Image Quote" style
+      product_type: 'Image Product',
+      show_in_image_quote: showInImageQuote,
+      show_in_manufacturing: showInManufacturing
     };
 
     try {
@@ -236,43 +278,142 @@ export default function ManufacturingProducts({ role = 'admin' }) {
     }
   }
 
-  async function handleDelete(prod) {
-    if (!window.confirm(`Delete product "${prod.name}" from database?`)) return;
+  async function finalizeDeletion(prod) {
     try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', prod.id);
-      if (error) throw error;
-      setProducts(prev => prev.filter(p => p.id !== prod.id));
-      addToast('Product deleted from database', 'success');
+      const { data: checkProd } = await supabase.from('products').select('show_in_image_quote').eq('id', prod.id).single();
+      if (checkProd && checkProd.show_in_image_quote && !isGlobal) {
+        // If it's active in Image Quote, just set show_in_manufacturing to false (hide it)
+        await supabase.from('products').update({ show_in_manufacturing: false }).eq('id', prod.id);
+      } else {
+        // Delete permanently
+        await supabase.from('products').delete().eq('id', prod.id);
+      }
     } catch (err) {
-      addToast('Failed to delete product: ' + err.message, 'error');
+      console.error('finalizeDeletion error:', err);
     }
   }
 
+  const handleDeleteTrigger = (prod) => {
+    // Immediately remove from list state
+    setProducts(prev => prev.filter(p => p.id !== prod.id));
+
+    // Start a 5-second timer to permanently delete
+    const timerId = setTimeout(() => {
+      finalizeDeletion(prod);
+      setUndoQueue(prev => prev.filter(q => q.id !== prod.id));
+    }, 5000);
+
+    setUndoQueue(prev => [...prev, {
+      id: prod.id,
+      item: prod,
+      timerId
+    }]);
+  };
+
+  const handleUndoDelete = (id) => {
+    const found = undoQueue.find(q => q.id === id);
+    if (!found) return;
+    clearTimeout(found.timerId);
+    setProducts(prev => [found.item, ...prev].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+    setUndoQueue(prev => prev.filter(q => q.id !== id));
+    addToast(`Restored "${found.item.name}"`, 'success');
+  };
+
+  async function handleCreateComponentInline() {
+    if (!newComponentName.trim()) {
+      addToast('Component name is required', 'error');
+      return;
+    }
+    try {
+      const payload = {
+        name: newComponentName.trim(),
+        description: newComponentDesc.trim() || null,
+        stock_qty: parseInt(newComponentStock) || 0,
+        unit: newComponentUnit || 'pcs',
+        cost: parseFloat(newComponentCost) || 0
+      };
+
+      const { data, error } = await supabase
+        .from('raw_components')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      addToast(`Component "${data.name}" created!`, 'success');
+      
+      // Update raw components list
+      setRawComponents(prev => [...prev, data].sort((a,b) => a.name.localeCompare(b.name)));
+
+      // Auto-select in the active row
+      if (activeRecipeRowIndex !== null) {
+        const updated = [...selectedComponents];
+        updated[activeRecipeRowIndex].component_id = data.id;
+        setSelectedComponents(updated);
+      }
+
+      // Reset inline form
+      setShowNewComponentModal(false);
+      setNewComponentName('');
+      setNewComponentDesc('');
+      setNewComponentStock('');
+      setNewComponentUnit('pcs');
+      setNewComponentCost('');
+      setActiveRecipeRowIndex(null);
+    } catch (err) {
+      addToast('Failed to create component: ' + err.message, 'error');
+    }
+  }
+
+  // Filter products by search query
+  const filteredProducts = products.filter(p => {
+    const query = searchQuery.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(query) ||
+      (p.model_number && p.model_number.toLowerCase().includes(query))
+    );
+  });
+
   return (
-    <div className="bg-white p-4 sm:p-8 rounded-xl shadow-sm border border-gray-200 max-w-4xl mx-auto">
+    <div className="bg-white p-4 sm:p-8 rounded-xl shadow-sm border border-gray-200 max-w-4xl mx-auto relative">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <div className="bg-blue-100 p-2 rounded-lg">
             <Package className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Products Catalog</h2>
+            <h2 className="text-xl font-bold text-gray-900">{isGlobal ? 'Global Products Database' : 'Products Catalog'}</h2>
             <p className="text-sm text-gray-500">Manage all finished lighting/strip products and link their assembly parts</p>
           </div>
         </div>
-        {!isEmployee && (
-          <button
-            onClick={handleOpenAdd}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Product
-          </button>
-        )}
+
+        <div className="flex items-center gap-2">
+          {/* Search bar */}
+          <div className="relative w-full sm:w-48">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+              <Search className="w-4 h-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {!isEmployee && (
+            <button
+              onClick={handleOpenAdd}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              New Product
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Product List */}
@@ -280,26 +421,28 @@ export default function ManufacturingProducts({ role = 'admin' }) {
         <div className="flex justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
         </div>
-      ) : products.length === 0 ? (
+      ) : filteredProducts.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <Package className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p className="font-medium">No products defined yet</p>
-          <p className="text-sm">Click "+ New Product" to add a finished product to the database.</p>
+          <p className="font-medium">No products match your search</p>
+          <p className="text-sm">Try using a different term or add a new product.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {products.map(prod => (
+          {filteredProducts.map(prod => (
             <div key={prod.id} className="bg-gray-50 rounded-xl border border-gray-200 p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div>
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <h3 className="font-bold text-gray-950 text-base">{prod.name}</h3>
-                    <span className="text-[11px] text-gray-700 font-semibold bg-gray-200 px-2 py-0.5 rounded">
-                      Model: {prod.model_number || 'N/A'}
-                    </span>
-                    <span className="text-[11px] text-gray-700 font-semibold bg-gray-200 px-2 py-0.5 rounded ml-1.5">
-                      Price: ₹{prod.base_price}
-                    </span>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-gray-950 text-base truncate">{prod.name}</h3>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      <span className="text-[10px] text-gray-700 font-semibold bg-gray-200 px-2 py-0.5 rounded">
+                        Model: {prod.model_number || 'N/A'}
+                      </span>
+                      <span className="text-[10px] text-gray-700 font-semibold bg-gray-200 px-2 py-0.5 rounded">
+                        Price: ₹{prod.base_price}
+                      </span>
+                    </div>
                   </div>
                   {!isEmployee && (
                     <div className="flex gap-1 flex-none">
@@ -311,7 +454,7 @@ export default function ManufacturingProducts({ role = 'admin' }) {
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(prod)}
+                        onClick={() => handleDeleteTrigger(prod)}
                         className="p-1 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition-all"
                         title="Delete Product"
                       >
@@ -335,6 +478,16 @@ export default function ManufacturingProducts({ role = 'admin' }) {
                   </div>
                 )}
 
+                {/* Database Locations Tagging */}
+                <div className="mb-3 border-t border-gray-200 pt-2 flex flex-wrap gap-1.5">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${prod.show_in_image_quote ? 'bg-indigo-100 text-indigo-750' : 'bg-gray-100 text-gray-400'}`}>
+                    Image Quote
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${prod.show_in_manufacturing ? 'bg-cyan-100 text-cyan-750' : 'bg-gray-100 text-gray-400'}`}>
+                    Manufacturing Portal
+                  </span>
+                </div>
+
                 <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Linked Raw Components:</p>
                 <div className="space-y-1.5">
                   {!prod.manufacturing_product_components || prod.manufacturing_product_components.length === 0 ? (
@@ -342,8 +495,8 @@ export default function ManufacturingProducts({ role = 'admin' }) {
                   ) : (
                     prod.manufacturing_product_components.map((mpc, idx) => (
                       <div key={mpc.id || idx} className="flex justify-between items-center bg-white border border-gray-150 rounded-lg px-2.5 py-1.5 text-xs text-gray-700">
-                        <span className="font-medium">{mpc.raw_components?.name || 'Unknown Component'}</span>
-                        <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-100">
+                        <span className="font-medium truncate mr-2">{mpc.raw_components?.name || 'Unknown Component'}</span>
+                        <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-100 shrink-0">
                           Qty: {mpc.default_qty}
                         </span>
                       </div>
@@ -356,9 +509,29 @@ export default function ManufacturingProducts({ role = 'admin' }) {
         </div>
       )}
 
+      {/* Floating Undo notifications */}
+      {undoQueue.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-full max-w-sm px-4">
+          {undoQueue.map(uq => (
+            <div key={uq.id} className="bg-gray-900 text-white rounded-xl px-4 py-3 flex items-center justify-between shadow-2xl border border-gray-800 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                <span className="text-xs font-semibold truncate">Removed "{uq.item.name}"</span>
+              </div>
+              <button
+                onClick={() => handleUndoDelete(uq.id)}
+                className="bg-white/15 hover:bg-white/25 text-white px-3 py-1 rounded-lg text-xs font-bold transition-colors ml-4 shrink-0"
+              >
+                Undo
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Add / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
             <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100 flex-none">
               <h3 className="font-bold text-gray-900 text-lg">
@@ -368,6 +541,32 @@ export default function ManufacturingProducts({ role = 'admin' }) {
             </div>
 
             <div className="space-y-4 overflow-y-auto flex-1 pr-1 -mr-1">
+              
+              {/* Database Visibility Checkboxes */}
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                <p className="text-[10px] text-blue-750 uppercase tracking-wider font-bold mb-2">Show Product In:</p>
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showInImageQuote}
+                      onChange={e => setShowInImageQuote(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    Image Quotation System
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showInManufacturing}
+                      onChange={e => setShowInManufacturing(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    Manufacturing Portal
+                  </label>
+                </div>
+              </div>
+
               {/* Product Basic Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -517,17 +716,15 @@ export default function ManufacturingProducts({ role = 'admin' }) {
                   <div className="space-y-2">
                     {selectedComponents.map((sc, idx) => (
                       <div key={idx} className="flex gap-2 items-center">
-                        <select
+                        <ComponentSelect
                           value={sc.component_id}
-                          onChange={e => handleComponentChange(idx, 'component_id', e.target.value)}
-                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        >
-                          {rawComponents.map(rc => (
-                            <option key={rc.id} value={rc.id}>
-                              {rc.name} (Stock: {rc.stock_qty || 0})
-                            </option>
-                          ))}
-                        </select>
+                          onChange={val => handleComponentChange(idx, 'component_id', val)}
+                          options={rawComponents}
+                          onCreateNew={() => {
+                            setActiveRecipeRowIndex(idx);
+                            setShowNewComponentModal(true);
+                          }}
+                        />
 
                         <div className="w-24 flex items-center gap-1 flex-none bg-gray-50 border border-gray-300 rounded-lg px-2 py-2">
                           <span className="text-xs text-gray-500">Qty:</span>
@@ -567,6 +764,94 @@ export default function ManufacturingProducts({ role = 'admin' }) {
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Product'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline Create Component Modal */}
+      {showNewComponentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-150">
+              <h4 className="font-bold text-gray-900 text-base">Create Raw Component</h4>
+              <button onClick={() => setShowNewComponentModal(false)} className="text-xl text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-650 block mb-1">Component Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Led Chip 12W"
+                  value={newComponentName}
+                  onChange={e => setNewComponentName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-650 block mb-1">Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Warm white chip for Sierra downlights"
+                  value={newComponentDesc}
+                  onChange={e => setNewComponentDesc(e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-gray-655 block mb-1">Stock Qty</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={newComponentStock}
+                    onChange={e => setNewComponentStock(e.target.value)}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-655 block mb-1">Unit</label>
+                  <input
+                    type="text"
+                    placeholder="pcs"
+                    value={newComponentUnit}
+                    onChange={e => setNewComponentUnit(e.target.value)}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-655 block mb-1">Unit Cost (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={newComponentCost}
+                    onChange={e => setNewComponentCost(e.target.value)}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2 border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowNewComponentModal(false)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateComponentInline}
+                disabled={!newComponentName.trim()}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2 rounded-xl text-xs transition-colors"
+              >
+                Create & Select
               </button>
             </div>
           </div>

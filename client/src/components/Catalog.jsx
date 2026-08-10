@@ -48,7 +48,8 @@ export default function Catalog() {
           *,
           brands (name)
         `)
-        .or('product_type.eq.Image Product,product_type.is.null');
+        .or('product_type.eq.Image Product,product_type.is.null')
+        .eq('show_in_image_quote', true);
       
       const { data, error } = await query.order('created_at', { ascending: false });
 

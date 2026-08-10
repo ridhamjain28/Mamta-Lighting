@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
-import { Plus, Pencil, Trash2, Save, X, Boxes, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, Boxes, GripVertical, Search } from 'lucide-react';
 import { useToastStore } from '../store/useToastStore';
 
 export default function RawComponents() {
@@ -15,8 +15,27 @@ export default function RawComponents() {
   const [editDesc, setEditDesc] = useState('');
   const [editStock, setEditStock] = useState(0);
   const { addToast } = useToastStore();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => { fetchComponents(); }, []);
+  // Undo queue state & ref
+  const [undoQueue, setUndoQueue] = useState([]);
+  const undoQueueRef = useRef([]);
+
+  useEffect(() => {
+    undoQueueRef.current = undoQueue;
+  }, [undoQueue]);
+
+  useEffect(() => {
+    fetchComponents();
+
+    return () => {
+      // Finalize all component deletions on unmount
+      undoQueueRef.current.forEach(uq => {
+        clearTimeout(uq.timerId);
+        finalizeComponentDeletion(uq.item.id);
+      });
+    };
+  }, []);
 
   async function fetchComponents() {
     setLoading(true);
@@ -89,27 +108,76 @@ export default function RawComponents() {
     }
   }
 
-  async function handleDelete(id, name) {
-    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    const { error } = await supabase.from('raw_components').delete().eq('id', id);
-    if (error) {
-      addToast('Failed to delete component', 'error');
-    } else {
-      setComponents(prev => prev.filter(c => c.id !== id));
-      addToast(`"${name}" deleted`, 'success');
+  async function finalizeComponentDeletion(id) {
+    try {
+      await supabase.from('raw_components').delete().eq('id', id);
+    } catch (e) {
+      console.error('finalizeComponentDeletion error:', e);
     }
   }
 
+  const handleDeleteTrigger = (id, name) => {
+    const target = components.find(c => c.id === id);
+    if (!target) return;
+
+    // Immediately remove from list state
+    setComponents(prev => prev.filter(c => c.id !== id));
+
+    // Start a 5-second timer to permanently delete
+    const timerId = setTimeout(() => {
+      finalizeComponentDeletion(id);
+      setUndoQueue(prev => prev.filter(q => q.id !== id));
+    }, 5000);
+
+    setUndoQueue(prev => [...prev, {
+      id,
+      item: target,
+      timerId
+    }]);
+  };
+
+  const handleUndoDelete = (id) => {
+    const found = undoQueue.find(q => q.id === id);
+    if (!found) return;
+    clearTimeout(found.timerId);
+    setComponents(prev => [...prev, found.item].sort((a,b) => (a.sort_order || 0) - (b.sort_order || 0)));
+    setUndoQueue(prev => prev.filter(q => q.id !== id));
+    addToast(`Restored "${found.item.name}"`, 'success');
+  };
+
+  const filteredComponents = components.filter(c => {
+    const query = searchQuery.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(query) ||
+      (c.description && c.description.toLowerCase().includes(query))
+    );
+  });
+
   return (
-    <div className="bg-white p-4 sm:p-8 rounded-xl shadow-sm border border-gray-200 max-w-3xl mx-auto">
+    <div className="bg-white p-4 sm:p-8 rounded-xl shadow-sm border border-gray-200 max-w-3xl mx-auto relative">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-        <div className="bg-slate-100 p-2 rounded-lg">
-          <Boxes className="w-5 h-5 text-slate-600" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-100 p-2 rounded-lg">
+            <Boxes className="w-5 h-5 text-slate-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Raw Components & Stock</h2>
+            <p className="text-sm text-gray-500">Global catalog & real-time inventory management</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Raw Components & Stock</h2>
-          <p className="text-sm text-gray-500">Global catalog & real-time inventory management</p>
+
+        <div className="relative w-full sm:w-48">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+            <Search className="w-4 h-4" />
+          </span>
+          <input
+            type="text"
+            placeholder="Search components..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          />
         </div>
       </div>
 
@@ -167,15 +235,15 @@ export default function RawComponents() {
       {/* Component List */}
       {loading ? (
         <p className="text-center text-gray-500 py-8">Loading components...</p>
-      ) : components.length === 0 ? (
+      ) : filteredComponents.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <Boxes className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p className="font-medium">No components yet</p>
-          <p className="text-sm">Add your first raw component above.</p>
+          <p className="font-medium">No components match your search</p>
+          <p className="text-sm">Try using a different term or add a new component.</p>
         </div>
       ) : (
         <div className="divide-y divide-gray-100">
-          {components.map((comp, idx) => (
+          {filteredComponents.map((comp, idx) => (
             <div key={comp.id} className="py-3 flex items-center gap-3 group">
               <GripVertical className="w-4 h-4 text-gray-300 flex-none" />
               <div className="flex-none w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-500">
@@ -264,7 +332,7 @@ export default function RawComponents() {
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(comp.id, comp.name)}
+                      onClick={() => handleDeleteTrigger(comp.id, comp.name)}
                       className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -277,8 +345,28 @@ export default function RawComponents() {
         </div>
       )}
 
+      {/* Floating Undo notifications */}
+      {undoQueue.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-full max-w-sm px-4">
+          {undoQueue.map(uq => (
+            <div key={uq.id} className="bg-gray-900 text-white rounded-xl px-4 py-3 flex items-center justify-between shadow-2xl border border-gray-800 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                <span className="text-xs font-semibold truncate">Removed "{uq.item.name}"</span>
+              </div>
+              <button
+                onClick={() => handleUndoDelete(uq.id)}
+                className="bg-white/15 hover:bg-white/25 text-white px-3 py-1 rounded-lg text-xs font-bold transition-colors ml-4 shrink-0"
+              >
+                Undo
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <p className="text-xs text-gray-400 mt-4 text-center">
-        {components.length} component{components.length !== 1 ? 's' : ''} in catalog
+        {filteredComponents.length} component{filteredComponents.length !== 1 ? 's' : ''} in list
       </p>
     </div>
   );

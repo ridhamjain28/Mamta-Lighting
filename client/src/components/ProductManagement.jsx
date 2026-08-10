@@ -85,7 +85,8 @@ export default function ProductManagement() {
     let query = supabase.from('products').select(`
       *,
       brands ( name )
-    `).or('product_type.eq.Image Product,product_type.is.null');
+    `).or('product_type.eq.Image Product,product_type.is.null')
+      .eq('show_in_image_quote', true);
     
     const { data } = await query.order('created_at', { ascending: false });
     if (data) setProducts(data);
@@ -171,16 +172,22 @@ export default function ProductManagement() {
   };
 
   const handleDelete = async (id) => {
-    // Optimistic UI update to fix INP (Interaction to Next Paint) delay
+    const originalProducts = [...products];
     setProducts(products.filter(p => p.id !== id));
     
     try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) {
-        fetchProducts(); // rollback
-        throw error;
+      const { data: checkProd } = await supabase.from('products').select('show_in_manufacturing').eq('id', id).single();
+      if (checkProd && checkProd.show_in_manufacturing) {
+        // If active in manufacturing portal, only toggle show_in_image_quote off
+        const { error } = await supabase.from('products').update({ show_in_image_quote: false }).eq('id', id);
+        if (error) throw error;
+      } else {
+        // Otherwise, perform permanent delete
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error) throw error;
       }
     } catch (e) {
+      setProducts(originalProducts); // rollback
       addToast("Error deleting product", "error");
     }
   };
