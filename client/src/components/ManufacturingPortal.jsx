@@ -550,10 +550,10 @@ export default function ManufacturingPortal({ role }) {
                     <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1 font-bold">Build Quantity</label>
                     <input
                       type="number"
-                      min="1"
                       className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-center font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={productBuildQty}
-                      onChange={e => setProductBuildQty(Math.max(1, Number(e.target.value) || 1))}
+                      onChange={e => setProductBuildQty(e.target.value)}
+                      onBlur={e => setProductBuildQty(Math.max(1, Number(e.target.value) || 1))}
                     />
                   </div>
 
@@ -568,7 +568,7 @@ export default function ManufacturingPortal({ role }) {
                             <div key={idx} className="flex justify-between items-center text-xs text-gray-600">
                               <span>{mpc.raw_components?.name || 'Unknown Component'}</span>
                               <span className="font-semibold text-gray-900">
-                                {(mpc.default_qty || 1) * productBuildQty} units ({(mpc.default_qty || 1)} × {productBuildQty})
+                                {(mpc.default_qty || 1) * (Number(productBuildQty) || 0)} units ({(mpc.default_qty || 1)} × {Number(productBuildQty) || 0})
                               </span>
                             </div>
                           ))
