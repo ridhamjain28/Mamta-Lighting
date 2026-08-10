@@ -20,9 +20,12 @@ ALTER TABLE manufacturing_job_components ADD COLUMN IF NOT EXISTS product_name T
 -- 4. Add completed_by tracking to manufacturing_jobs
 ALTER TABLE manufacturing_jobs ADD COLUMN IF NOT EXISTS completed_by TEXT;
 
--- 5. Add visibility filters to products table
+-- 5. Add approval and stock deduction tracking to manufacturing_jobs
+ALTER TABLE manufacturing_jobs ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT FALSE;
+
+-- 6. Add visibility filters to products table
 ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_image_quote BOOLEAN DEFAULT TRUE;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_manufacturing BOOLEAN DEFAULT FALSE;
 
--- 6. Enable Realtime for the link table
+-- 7. Enable Realtime for the link table
 ALTER PUBLICATION supabase_realtime ADD TABLE manufacturing_product_components;

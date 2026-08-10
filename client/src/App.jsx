@@ -145,7 +145,17 @@ function App() {
   // Home screen (no system selected)
   if (!systemMode) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-6 relative">
+        <div className="max-w-6xl w-full flex justify-end mb-6">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors bg-white px-3.5 py-2 rounded-xl border border-gray-200 shadow-sm"
+          >
+            <LogOut className="w-3.5 h-3.5 text-red-500" />
+            Logout
+          </button>
+        </div>
+
         <div className="max-w-6xl w-full">
           <div className="text-center mb-12">
             <div className="inline-flex items-center justify-center bg-blue-600 text-white p-3 rounded-2xl mb-4 shadow-lg">
@@ -238,14 +248,6 @@ function App() {
                 <p className="text-gray-500 mb-6 text-base">Track and manage manufacturing jobs with component checklists.</p>
               </div>
               <span className="text-orange-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">View Jobs →</span>
-            </button>
-          </div>
-
-          {/* Logout */}
-          <div className="flex justify-center mt-10">
-            <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-              <LogOut className="w-4 h-4" />
-              Logout
             </button>
           </div>
         </div>

@@ -294,20 +294,6 @@ export default function ManufacturingPortal({ role }) {
 
     if (!error) {
       setJobComponents(prev => prev.map(c => c.id === comp.id ? { ...c, is_collected: nextCollected } : c));
-
-      // Auto-update raw_components stock if linked to catalog
-      if (comp.component_id) {
-        const targetRaw = rawComponents.find(r => r.id === comp.component_id);
-        if (targetRaw) {
-          const qty = Number(comp.actual_qty) || Number(comp.planned_qty) || 1;
-          const newStock = nextCollected
-            ? Math.max(0, (targetRaw.stock_qty || 0) - qty)
-            : (targetRaw.stock_qty || 0) + qty;
-
-          await supabase.from('raw_components').update({ stock_qty: newStock }).eq('id', comp.component_id);
-          fetchRawComponents();
-        }
-      }
     }
   }
 
@@ -372,6 +358,66 @@ export default function ManufacturingPortal({ role }) {
     setSavingStatus(false);
   }
 
+  async function handleApproveJob(job) {
+    if (job.approved) return;
+    try {
+      // 1. Fetch all job components
+      const { data: comps, error: fetchErr } = await supabase
+        .from('manufacturing_job_components')
+        .select('*')
+        .eq('job_id', job.id);
+      
+      if (fetchErr) throw fetchErr;
+
+      // Filter to only collected components
+      const collectedComps = (comps || []).filter(c => c.is_collected && c.component_id);
+
+      if (collectedComps.length > 0) {
+        // 2. Fetch current stock of these raw components
+        const componentIds = collectedComps.map(c => c.component_id);
+        const { data: rawComps, error: rawErr } = await supabase
+          .from('raw_components')
+          .select('id, name, stock_qty')
+          .in('id', componentIds);
+        
+        if (rawErr) throw rawErr;
+
+        // Deduct stock for each
+        for (const comp of collectedComps) {
+          const rc = rawComps.find(x => x.id === comp.component_id);
+          if (rc) {
+            const qtyUsed = Number(comp.actual_qty) || Number(comp.planned_qty) || 1;
+            const newStock = Math.max(0, (rc.stock_qty || 0) - qtyUsed);
+            
+            const { error: updErr } = await supabase
+              .from('raw_components')
+              .update({ stock_qty: newStock })
+              .eq('id', rc.id);
+            
+            if (updErr) throw updErr;
+          }
+        }
+      }
+
+      // 3. Mark the job as approved in the database
+      const { error: jobErr } = await supabase
+        .from('manufacturing_jobs')
+        .update({ approved: true })
+        .eq('id', job.id);
+      
+      if (jobErr) throw jobErr;
+
+      // 4. Update local state
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, approved: true } : j));
+      if (selectedJob?.id === job.id) setSelectedJob(prev => ({ ...prev, approved: true }));
+      addToast(`Job "${job.title}" approved and stock updated!`, 'success');
+      fetchRawComponents();
+    } catch (err) {
+      console.error('Approval error:', err);
+      addToast('Failed to approve job: ' + err.message, 'error');
+    }
+  }
+
   async function handleLoadProductTemplate() {
     if (!selectedMfgProduct || !selectedJob) return;
     const comps = selectedMfgProduct.manufacturing_product_components || [];
@@ -415,11 +461,17 @@ export default function ManufacturingPortal({ role }) {
     const extraComps = [];
 
     jobComponents.forEach(comp => {
-      if (comp.product_name) {
-        if (!grouped[comp.product_name]) {
-          grouped[comp.product_name] = [];
+      let prodName = comp.product_name;
+      if (!prodName && comp.note && comp.note.startsWith('Auto-linked from product "')) {
+        const match = comp.note.match(/Auto-linked from product "([^"]+)"/);
+        if (match) prodName = match[1];
+      }
+
+      if (prodName) {
+        if (!grouped[prodName]) {
+          grouped[prodName] = [];
         }
-        grouped[comp.product_name].push(comp);
+        grouped[prodName].push(comp);
       } else {
         extraComps.push(comp);
       }
@@ -435,11 +487,8 @@ export default function ManufacturingPortal({ role }) {
     if (quoteProducts.length > 0) {
       quoteProducts.forEach(qp => {
         const comps = grouped[qp.name] || [];
-        // Sort components: unchecked first, checked last
-        const sortedComps = [...comps].sort((a, b) => {
-          if (a.is_collected === b.is_collected) return (a.sort_order || 0) - (b.sort_order || 0);
-          return a.is_collected ? 1 : -1;
-        });
+        // Sort components strictly by sort_order
+        const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         finalGroups.push({
           name: qp.name,
           qty: qp.qty,
@@ -453,10 +502,7 @@ export default function ManufacturingPortal({ role }) {
     // Any remaining custom loaded template products
     Object.keys(grouped).forEach(name => {
       const comps = grouped[name];
-      const sortedComps = [...comps].sort((a, b) => {
-        if (a.is_collected === b.is_collected) return (a.sort_order || 0) - (b.sort_order || 0);
-        return a.is_collected ? 1 : -1;
-      });
+      const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       finalGroups.push({
         name,
         qty: null,
@@ -652,9 +698,57 @@ export default function ManufacturingPortal({ role }) {
 
   // ─── JOB DETAIL VIEW ──────────────────────────────────────────────────────
   if (selectedJob) {
-    const totalCount = jobComponents.length;
-    const collectedCount = jobComponents.filter(c => c.is_collected).length;
-    const progressPct = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0;
+    // Group the components to calculate progress by products completed
+    const groupedForProgress = {};
+    jobComponents.forEach(comp => {
+      let prodName = comp.product_name;
+      if (!prodName && comp.note && comp.note.startsWith('Auto-linked from product "')) {
+        const match = comp.note.match(/Auto-linked from product "([^"]+)"/);
+        if (match) prodName = match[1];
+      }
+      if (prodName) {
+        if (!groupedForProgress[prodName]) groupedForProgress[prodName] = [];
+        groupedForProgress[prodName].push(comp);
+      }
+    });
+
+    const quoteProductsForProgress = quoteItems.map(qi => ({
+      name: qi.products?.name || 'Unknown Product',
+      qty: qi.quantity
+    }));
+
+    const finalGroupsForProgress = [];
+    if (quoteProductsForProgress.length > 0) {
+      quoteProductsForProgress.forEach(qp => {
+        finalGroupsForProgress.push({
+          name: qp.name,
+          components: groupedForProgress[qp.name] || []
+        });
+        delete groupedForProgress[qp.name];
+      });
+    }
+    Object.keys(groupedForProgress).forEach(name => {
+      finalGroupsForProgress.push({
+        name,
+        components: groupedForProgress[name]
+      });
+    });
+
+    const totalProducts = finalGroupsForProgress.length;
+    const completedProducts = finalGroupsForProgress.filter(g => g.components.length > 0 && g.components.every(c => c.is_collected)).length;
+
+    let progressPct = 0;
+    let progressLabel = '';
+    if (totalProducts > 0) {
+      progressPct = Math.round((completedProducts / totalProducts) * 100);
+      progressLabel = `${completedProducts}/${totalProducts} products completed`;
+    } else {
+      const totalCount = jobComponents.length;
+      const collectedCount = jobComponents.filter(c => c.is_collected).length;
+      progressPct = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0;
+      progressLabel = `${collectedCount}/${totalCount} parts collected`;
+    }
+
     const cfg = STATUS_CONFIG[selectedJob.status] || STATUS_CONFIG['Not Started'];
 
     return (
@@ -700,11 +794,11 @@ export default function ManufacturingPortal({ role }) {
         {/* DETAILS SECTION */}
         <div className="flex-1 p-4 space-y-4">
           {/* Progress bar */}
-          {totalCount > 0 && (
+          {jobComponents.length > 0 && (
             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-xs">
               <div className="flex justify-between text-xs mb-2">
                 <span className="font-bold text-gray-700">Completion Status</span>
-                <span className="font-extrabold text-gray-900">{collectedCount}/{totalCount} parts collected</span>
+                <span className="font-extrabold text-gray-900">{progressLabel}</span>
               </div>
               <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                 <div
@@ -715,6 +809,35 @@ export default function ManufacturingPortal({ role }) {
               <p className="text-[10px] text-gray-400 mt-1.5 text-right font-medium">{progressPct}% Complete</p>
             </div>
           )}
+          {selectedJob.status === 'Completed' && (
+            <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-in fade-in duration-200 ${selectedJob.approved ? 'bg-emerald-50/30 border-emerald-200' : 'bg-orange-50/30 border-orange-200'}`}>
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-bold ${selectedJob.approved ? 'text-emerald-800' : 'text-orange-850'}`}>Admin Approval & Stock Deduction</p>
+                <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                  {selectedJob.approved
+                    ? 'This job is approved, and raw component stock quantities have been deducted.'
+                    : 'This job is pending approval. Approving will subtract collected component quantities from stock.'}
+                </p>
+              </div>
+              {selectedJob.approved ? (
+                <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-105 border border-emerald-250 text-emerald-800 rounded-xl text-xs font-bold shrink-0 self-start sm:self-auto">
+                  <Check className="w-3.5 h-3.5" strokeWidth={3} /> Approved & Deducted
+                </div>
+              ) : role === 'admin' ? (
+                <button
+                  onClick={() => handleApproveJob(selectedJob)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-xs shrink-0 self-start sm:self-auto"
+                >
+                  Approve & Deduct Stock
+                </button>
+              ) : (
+                <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-105 border border-orange-250 text-orange-800 rounded-xl text-xs font-bold shrink-0 self-start sm:self-auto">
+                  Pending Admin Approval
+                </div>
+              )}
+            </div>
+          )}
+
 
           {/* Grouped Component List */}
           {totalCount === 0 ? (
@@ -924,6 +1047,18 @@ export default function ManufacturingPortal({ role }) {
           >
             <ClipboardList className="w-4.5 h-4.5" /> Jobs
           </button>
+          {role === 'admin' && (
+            <button
+              onClick={() => setPortalTab('completed')}
+              className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                portalTab === 'completed'
+                  ? 'border-blue-600 text-blue-600 font-bold'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <CheckCircle2 className="w-4.5 h-4.5" /> Completed Jobs
+            </button>
+          )}
           <button
             onClick={() => setPortalTab('products')}
             className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
@@ -964,14 +1099,14 @@ export default function ManufacturingPortal({ role }) {
             <div className="flex justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
             </div>
-          ) : jobs.length === 0 ? (
+          ) : jobs.filter(j => j.status !== 'Completed').length === 0 ? (
             <div className="text-center py-16 text-gray-400">
               <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-30" />
-              <p className="font-semibold text-gray-500">No manufacturing jobs yet</p>
+              <p className="font-semibold text-gray-500">No active manufacturing jobs yet</p>
               <p className="text-sm mt-1">Create a new job or send a quotation to manufacturing.</p>
             </div>
           ) : (
-            jobs.map(job => {
+            jobs.filter(j => j.status !== 'Completed').map(job => {
               const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG['Not Started'];
               return (
                 <div
@@ -981,11 +1116,7 @@ export default function ManufacturingPortal({ role }) {
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-gray-900 text-sm leading-tight">{job.title}</h3>
-                      {job.completed_by && job.status === 'Completed' ? (
-                        <p className="text-[10px] text-green-700 font-bold bg-green-50 px-1.5 py-0.5 rounded mt-1.5 inline-block border border-green-100">
-                          Completed by: {job.completed_by}
-                        </p>
-                      ) : job.notes ? (
+                      {job.notes ? (
                         <p className="text-xs text-gray-500 mt-1 truncate">{job.notes}</p>
                       ) : null}
                     </div>
@@ -1005,6 +1136,78 @@ export default function ManufacturingPortal({ role }) {
                           className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg border border-transparent hover:border-gray-200"
                         >
                           <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setSelectedJob(job)}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Open →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {portalTab === 'completed' && role === 'admin' && (
+        <div className="flex-1 p-4 space-y-3">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : jobs.filter(j => j.status === 'Completed').length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <CheckCircle2 className="w-12 h-12 mx-auto mb-4 opacity-30 text-gray-300" />
+              <p className="font-semibold text-gray-500">No completed jobs yet</p>
+            </div>
+          ) : (
+            jobs.filter(j => j.status === 'Completed').map(job => {
+              const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG['Not Started'];
+              return (
+                <div
+                  key={job.id}
+                  className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-xs transition-shadow relative overflow-hidden"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-900 text-sm leading-tight">{job.title}</h3>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                        {job.completed_by && (
+                          <span className="text-[10px] text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded-md border border-green-100">
+                            Completed by: {job.completed_by}
+                          </span>
+                        )}
+                        {job.approved ? (
+                          <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-250 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600" strokeWidth={3} /> Approved / Stock Deducted
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-orange-800 bg-orange-50 font-bold px-2 py-0.5 rounded-md border border-orange-200">
+                            Pending Stock Deduction
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap flex-none border ${cfg.color}`}>
+                      {job.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-2.5">
+                    <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
+                      <Clock className="w-3.5 h-3.5" />
+                      {new Date(job.updated_at).toLocaleDateString()}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {!job.approved && (
+                        <button
+                          onClick={() => handleApproveJob(job)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3.5 py-1.5 rounded-xl transition-all shadow-xs"
+                        >
+                          Approve & Deduct Stock
                         </button>
                       )}
                       <button

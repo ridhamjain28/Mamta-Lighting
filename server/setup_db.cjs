@@ -38,6 +38,7 @@ async function runSetup() {
           notes TEXT,
           status TEXT DEFAULT 'Not Started',
           completed_by TEXT,
+          approved BOOLEAN DEFAULT FALSE,
           created_at TIMESTAMPTZ DEFAULT NOW(),
           updated_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -66,6 +67,9 @@ async function runSetup() {
 
       ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_image_quote BOOLEAN DEFAULT TRUE;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_manufacturing BOOLEAN DEFAULT FALSE;
+      ALTER TABLE manufacturing_jobs ADD COLUMN IF NOT EXISTS completed_by TEXT;
+      ALTER TABLE manufacturing_jobs ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT FALSE;
+      ALTER TABLE manufacturing_job_components ADD COLUMN IF NOT EXISTS product_name TEXT;
     `;
     
     await client.query(setupSql);

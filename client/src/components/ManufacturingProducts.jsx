@@ -47,6 +47,21 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
   const [undoQueue, setUndoQueue] = useState([]);
   const undoQueueRef = useRef([]);
 
+  // Link products from database states
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [dbProducts, setDbProducts] = useState([]);
+  const [selectedDbIds, setSelectedDbIds] = useState([]);
+  const [dbSearchQuery, setDbSearchQuery] = useState('');
+  const [linking, setLinking] = useState(false);
+
+  const handleToggleSelectDbId = (id) => {
+    if (selectedDbIds.includes(id)) {
+      setSelectedDbIds(selectedDbIds.filter(x => x !== id));
+    } else {
+      setSelectedDbIds([...selectedDbIds, id]);
+    }
+  };
+
   useEffect(() => {
     undoQueueRef.current = undoQueue;
   }, [undoQueue]);
@@ -123,6 +138,41 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
       if (unitTypeData) setUnitTypes(unitTypeData.sort((a,b) => a.name.localeCompare(b.name)));
     } catch (err) {
       console.error('fetchMetadata error:', err);
+    }
+  }
+
+  async function fetchDbProducts() {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .neq('show_in_manufacturing', true)
+        .or('product_type.eq.Image Product,product_type.is.null')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      setDbProducts(data || []);
+      setSelectedDbIds([]);
+    } catch (err) {
+      console.error('Error fetching db products:', err);
+    }
+  }
+
+  async function handleLinkSelected() {
+    if (selectedDbIds.length === 0) return;
+    setLinking(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ show_in_manufacturing: true })
+        .in('id', selectedDbIds);
+      if (error) throw error;
+      addToast(`Successfully linked ${selectedDbIds.length} products to Manufacturing`, 'success');
+      setShowLinkModal(false);
+      fetchProducts();
+    } catch (err) {
+      addToast('Failed to link products: ' + err.message, 'error');
+    } finally {
+      setLinking(false);
     }
   }
 
@@ -403,6 +453,19 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
+
+          {!isEmployee && !isGlobal && (
+            <button
+              onClick={() => {
+                fetchDbProducts();
+                setShowLinkModal(true);
+              }}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 animate-in fade-in"
+            >
+              <Plus className="w-4 h-4" />
+              Link from Database
+            </button>
+          )}
 
           {!isEmployee && (
             <button
@@ -852,6 +915,75 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2 rounded-xl text-xs transition-colors"
               >
                 Create & Select
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Link Products from Database Modal */}
+    {showLinkModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-150 flex-none">
+              <h4 className="font-bold text-gray-900 text-base">Link Products from Database</h4>
+              <button onClick={() => setShowLinkModal(false)} className="text-xl text-gray-400 hover:text-gray-600">×</button>
+            </div>
+
+            <div className="relative flex-none mb-3">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                <Search className="w-3.5 h-3.5" />
+              </span>
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={dbSearchQuery}
+                onChange={e => setDbSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1 space-y-2 pr-1 min-h-[200px]">
+              {dbProducts.length === 0 ? (
+                <p className="text-xs text-gray-450 italic text-center py-8">All catalog products are already active in the Manufacturing portal.</p>
+              ) : (
+                dbProducts
+                  .filter(p => p.name.toLowerCase().includes(dbSearchQuery.toLowerCase()))
+                  .map(p => (
+                    <label
+                      key={p.id}
+                      className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer text-xs font-semibold text-gray-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedDbIds.includes(p.id)}
+                        onChange={() => handleToggleSelectDbId(p.id)}
+                        className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold text-gray-900">{p.name}</p>
+                        {p.model_number && <p className="text-[10px] text-gray-500 truncate">Model: {p.model_number}</p>}
+                      </div>
+                    </label>
+                  ))
+              )}
+            </div>
+
+            <div className="mt-5 flex gap-2 border-t border-gray-150 pt-3 flex-none">
+              <button
+                type="button"
+                onClick={() => setShowLinkModal(false)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-705 font-bold py-2.5 rounded-xl text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleLinkSelected}
+                disabled={linking || selectedDbIds.length === 0}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
+              >
+                {linking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : `Link Selected (${selectedDbIds.length})`}
               </button>
             </div>
           </div>
