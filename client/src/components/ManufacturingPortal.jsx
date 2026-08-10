@@ -99,6 +99,17 @@ export default function ManufacturingPortal({ role }) {
     }
   }, [showLoadProductModal]);
 
+  useEffect(() => {
+    if (showLoadProductModal || showNewJobModal || showAddComponentDrawer || showCompletedModal) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [showLoadProductModal, showNewJobModal, showAddComponentDrawer, showCompletedModal]);
+
   async function fetchJobs() {
     const { data, error } = await supabase
       .from('manufacturing_jobs')

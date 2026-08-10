@@ -67,6 +67,17 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
   }, [undoQueue]);
 
   useEffect(() => {
+    if (showModal || showNewComponentModal || showLinkModal) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [showModal, showNewComponentModal, showLinkModal]);
+
+  useEffect(() => {
     fetchProducts();
     fetchRawComponents();
     fetchMetadata();
@@ -317,6 +328,16 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
           .insert(insertData);
         if (insErr) throw insErr;
       }
+      // If we are editing and the name changed, rename in active jobs
+      if (editingProduct && editingProduct.name !== payload.name) {
+        await supabase
+          .from('manufacturing_job_components')
+          .update({ product_name: payload.name })
+          .eq('product_name', editingProduct.name);
+      }
+
+      // Sync master recipe to all active (uncompleted) jobs
+      await syncProductRecipeToActiveJobs(productId, payload.name);
 
       setShowModal(false);
       fetchProducts();
@@ -325,6 +346,153 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
       addToast('Failed to save product: ' + err.message, 'error');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function syncProductRecipeToActiveJobs(productId, productName) {
+    try {
+      const { data: activeJobs, error: jobsErr } = await supabase
+        .from('manufacturing_jobs')
+        .select('id, quotation_id')
+        .neq('status', 'Completed');
+
+      if (jobsErr) throw jobsErr;
+      if (!activeJobs || activeJobs.length === 0) return;
+
+      const { data: recipeComps, error: recipeErr } = await supabase
+        .from('manufacturing_product_components')
+        .select(`
+          component_id,
+          default_qty,
+          raw_components (
+            name
+          )
+        `)
+        .eq('product_id', productId);
+
+      if (recipeErr) throw recipeErr;
+      if (!recipeComps) return;
+
+      for (const job of activeJobs) {
+        let multiplier = null;
+        let hasProduct = false;
+
+        // Check if there are components for this product in this job
+        const { data: existingComps, error: existErr } = await supabase
+          .from('manufacturing_job_components')
+          .select('*')
+          .eq('job_id', job.id)
+          .eq('product_name', productName);
+
+        if (existErr) {
+          console.error('Error fetching existing components for job:', job.id, existErr);
+          continue;
+        }
+
+        if (existingComps && existingComps.length > 0) {
+          hasProduct = true;
+          for (const ec of existingComps) {
+            const rc = recipeComps.find(r => r.component_id === ec.component_id);
+            if (rc && rc.default_qty > 0) {
+              multiplier = Math.round(ec.planned_qty / rc.default_qty);
+              break;
+            }
+          }
+        }
+
+        // If job has quotation_id, check if quote has this product
+        if (job.quotation_id) {
+          const { data: quoteItems, error: qiErr } = await supabase
+            .from('quotation_items')
+            .select('quantity')
+            .eq('quotation_id', job.quotation_id)
+            .eq('product_id', productId);
+
+          if (qiErr) {
+            console.error('Error fetching quotation items for job:', job.id, qiErr);
+          } else if (quoteItems && quoteItems.length > 0) {
+            hasProduct = true;
+            multiplier = Number(quoteItems[0].quantity) || 1;
+          }
+        }
+
+        if (!hasProduct) continue;
+
+        if (multiplier === null || multiplier <= 0) {
+          multiplier = 1;
+        }
+
+        const existingMap = {};
+        if (existingComps) {
+          existingComps.forEach(ec => {
+            existingMap[ec.component_id] = ec;
+          });
+        }
+
+        const inserts = [];
+        const updates = [];
+        const keepIds = new Set();
+
+        recipeComps.forEach((rc, idx) => {
+          const existing = existingMap[rc.component_id];
+          const plannedQty = (rc.default_qty || 1) * multiplier;
+          const compName = rc.raw_components?.name || 'Unknown Component';
+
+          if (existing) {
+            keepIds.add(existing.id);
+            if (existing.planned_qty !== plannedQty || existing.component_name !== compName) {
+              updates.push({
+                id: existing.id,
+                planned_qty: plannedQty,
+                component_name: compName
+              });
+            }
+          } else {
+            inserts.push({
+              job_id: job.id,
+              component_id: rc.component_id,
+              component_name: compName,
+              planned_qty: plannedQty,
+              is_collected: false,
+              product_name: productName,
+              sort_order: 1000 + idx
+            });
+          }
+        });
+
+        const deleteIds = [];
+        if (existingComps) {
+          existingComps.forEach(ec => {
+            if (!keepIds.has(ec.id)) {
+              deleteIds.push(ec.id);
+            }
+          });
+        }
+
+        if (deleteIds.length > 0) {
+          await supabase
+            .from('manufacturing_job_components')
+            .delete()
+            .in('id', deleteIds);
+        }
+
+        if (updates.length > 0) {
+          for (const up of updates) {
+            await supabase
+              .from('manufacturing_job_components')
+              .update({ planned_qty: up.planned_qty, component_name: up.component_name })
+              .eq('id', up.id);
+          }
+        }
+
+        if (inserts.length > 0) {
+          await supabase
+            .from('manufacturing_job_components')
+            .insert(inserts);
+        }
+      }
+    } catch (e) {
+      console.error('Error in syncProductRecipeToActiveJobs:', e);
     }
   }
 
