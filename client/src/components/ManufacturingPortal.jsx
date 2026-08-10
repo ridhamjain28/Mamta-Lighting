@@ -15,6 +15,8 @@ const STATUS_CONFIG = {
   'Completed':   { color: 'bg-green-100 text-green-700 border-green-200', dot: 'bg-green-500' },
 };
 
+const normalizeProductName = (name) => String(name || '').trim().toLowerCase();
+
 export default function ManufacturingPortal({ role }) {
   const { addToast } = useToastStore();
   const [portalTab, setPortalTab] = useState('jobs');
@@ -470,6 +472,18 @@ export default function ManufacturingPortal({ role }) {
 
   // ─── RENDERING PRODUCTS CHECKS GROUPED ────────────────────────────────────
   const renderProductGroups = () => {
+    // The quote defines the product sections. Components are placed into one
+    // of those sections by product ID, or by normalized product name for jobs
+    // created before product_id existed.
+    const quoteProducts = Object.values(quoteItems.reduce((products, qi) => {
+      const id = qi.products?.id || qi.product_id;
+      const name = qi.products?.name || 'Unknown Product';
+      const key = id ? `product-${id}` : `quote-${normalizeProductName(name)}`;
+      if (!products[key]) products[key] = { key, name, qty: 0 };
+      products[key].qty += Number(qi.quantity) || 0;
+      return products;
+    }, {}));
+    const quoteKeyByName = new Map(quoteProducts.map(product => [normalizeProductName(product.name), product.key]));
     const grouped = {};
     const extraComps = [];
 
@@ -481,9 +495,9 @@ export default function ManufacturingPortal({ role }) {
         if (match) prodName = match[1];
       }
 
-      // Older jobs did not save product_id. Keep them grouped by their saved
-      // product name, while all new jobs use the unambiguous product ID.
-      if (!productKey && prodName) productKey = `legacy-${prodName}`;
+      if (!productKey && prodName) {
+        productKey = quoteKeyByName.get(normalizeProductName(prodName)) || `manual-${normalizeProductName(prodName)}`;
+      }
 
       if (productKey) {
         if (!grouped[productKey]) {
@@ -495,23 +509,11 @@ export default function ManufacturingPortal({ role }) {
       }
     });
 
-    // A product can appear on more than one quote line (for example after a
-    // duplicated line). Show it once and use the total as its build quantity.
-    const quoteProducts = Object.values(quoteItems.reduce((products, qi) => {
-      const id = qi.products?.id || qi.product_id;
-      const name = qi.products?.name || 'Unknown Product';
-      const key = id ? `product-${id}` : `legacy-${name}`;
-      if (!products[key]) products[key] = { key, name, qty: 0 };
-      products[key].qty += Number(qi.quantity) || 0;
-      return products;
-    }, {}));
-
     const finalGroups = [];
 
     if (quoteProducts.length > 0) {
       quoteProducts.forEach(qp => {
-        const componentKey = grouped[qp.key] ? qp.key : `legacy-${qp.name}`;
-        const comps = grouped[componentKey] || [];
+        const comps = grouped[qp.key] || [];
         // Sort components strictly by sort_order
         const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         finalGroups.push({
@@ -520,7 +522,7 @@ export default function ManufacturingPortal({ role }) {
           components: sortedComps,
           isQuoteProduct: true
         });
-        delete grouped[componentKey];
+        delete grouped[qp.key];
       });
     }
 
@@ -745,6 +747,15 @@ export default function ManufacturingPortal({ role }) {
 
   // ─── JOB DETAIL VIEW ──────────────────────────────────────────────────────
   if (selectedJob) {
+    const quoteProductsForProgress = Object.values(quoteItems.reduce((products, qi) => {
+      const id = qi.products?.id || qi.product_id;
+      const name = qi.products?.name || 'Unknown Product';
+      const key = id ? `product-${id}` : `quote-${normalizeProductName(name)}`;
+      if (!products[key]) products[key] = { key, name };
+      return products;
+    }, {}));
+    const quoteProgressKeyByName = new Map(quoteProductsForProgress.map(product => [normalizeProductName(product.name), product.key]));
+
     // Group the components to calculate progress by products completed
     const groupedForProgress = {};
     jobComponents.forEach(comp => {
@@ -754,30 +765,23 @@ export default function ManufacturingPortal({ role }) {
         const match = comp.note.match(/Auto-linked from product "([^"]+)"/);
         if (match) prodName = match[1];
       }
-      if (!productKey && prodName) productKey = `legacy-${prodName}`;
+      if (!productKey && prodName) {
+        productKey = quoteProgressKeyByName.get(normalizeProductName(prodName)) || `manual-${normalizeProductName(prodName)}`;
+      }
       if (productKey) {
         if (!groupedForProgress[productKey]) groupedForProgress[productKey] = [];
         groupedForProgress[productKey].push(comp);
       }
     });
 
-    const quoteProductsForProgress = Object.values(quoteItems.reduce((products, qi) => {
-      const id = qi.products?.id || qi.product_id;
-      const name = qi.products?.name || 'Unknown Product';
-      const key = id ? `product-${id}` : `legacy-${name}`;
-      if (!products[key]) products[key] = { key, name };
-      return products;
-    }, {}));
-
     const finalGroupsForProgress = [];
     if (quoteProductsForProgress.length > 0) {
       quoteProductsForProgress.forEach(qp => {
-        const componentKey = groupedForProgress[qp.key] ? qp.key : `legacy-${qp.name}`;
         finalGroupsForProgress.push({
           name: qp.name,
-          components: groupedForProgress[componentKey] || []
+          components: groupedForProgress[qp.key] || []
         });
-        delete groupedForProgress[componentKey];
+        delete groupedForProgress[qp.key];
       });
     }
     Object.entries(groupedForProgress).forEach(([key, components]) => {
