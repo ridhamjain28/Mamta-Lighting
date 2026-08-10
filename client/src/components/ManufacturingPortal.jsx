@@ -488,10 +488,14 @@ export default function ManufacturingPortal({ role }) {
       }
     });
 
-    const quoteProducts = quoteItems.map(qi => ({
-      name: qi.products?.name || 'Unknown Product',
-      qty: qi.quantity
-    }));
+    // A product can appear on more than one quote line (for example after a
+    // duplicated line). Show it once and use the total as its build quantity.
+    const quoteProducts = Object.values(quoteItems.reduce((products, qi) => {
+      const name = qi.products?.name || 'Unknown Product';
+      if (!products[name]) products[name] = { name, qty: 0 };
+      products[name].qty += Number(qi.quantity) || 0;
+      return products;
+    }, {}));
 
     const finalGroups = [];
 
@@ -528,6 +532,26 @@ export default function ManufacturingPortal({ role }) {
           <div key={idx} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
             <div className="flex items-center justify-between border-b border-gray-150 pb-3 mb-4">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    const allCollected = g.components.every(c => c.is_collected);
+                    const updates = g.components.map(c => ({ id: c.id, is_collected: !allCollected }));
+
+                    for (const u of updates) {
+                      await supabase.from('manufacturing_job_components').update({ is_collected: u.is_collected }).eq('id', u.id);
+                    }
+
+                    setJobComponents(prev => prev.map(c => {
+                      const updated = updates.find(update => update.id === c.id);
+                      return updated ? { ...c, is_collected: updated.is_collected } : c;
+                    }));
+                  }}
+                  className={`flex-none w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                    g.components.every(c => c.is_collected) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 hover:border-blue-400 bg-white'
+                  }`}
+                >
+                  {g.components.length > 0 && g.components.every(c => c.is_collected) && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />}
+                </button>
                 <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600">
                   <Package className="w-4.5 h-4.5" />
                 </div>
@@ -549,6 +573,9 @@ export default function ManufacturingPortal({ role }) {
               </div>
             ) : (
               <div className="space-y-3">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Components required
+                </p>
                 {g.components.map(comp => (
                   <div
                     key={comp.id}
@@ -569,7 +596,7 @@ export default function ManufacturingPortal({ role }) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <p className={`font-semibold text-sm ${comp.is_collected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                            {comp.component_name}
+                            {comp.component_name} - {comp.planned_qty}{g.qty ? ` (${g.qty}x${Number((comp.planned_qty / g.qty).toFixed(2))})` : ''}
                           </p>
                           <button
                             onClick={() => handleDeleteComponent(comp.id)}
@@ -619,7 +646,7 @@ export default function ManufacturingPortal({ role }) {
           </div>
         ))}
 
-        {/* Extra Manual Parts Card */}
+        {/* Standalone parts always stay below every quoted/loaded product. */}
         {extraComps.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
             <div className="flex items-center justify-between border-b border-gray-150 pb-3 mb-4">
@@ -628,14 +655,14 @@ export default function ManufacturingPortal({ role }) {
                   <Boxes className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-905 text-sm sm:text-base leading-tight">Manual / Custom Parts</h3>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">Extra Components</p>
+                  <h3 className="font-bold text-gray-905 text-sm sm:text-base leading-tight">Extra Components</h3>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">Not tied to a quoted product</p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              {[...extraComps].sort((a,b) => (a.is_collected === b.is_collected ? 0 : a.is_collected ? 1 : -1)).map(comp => (
+              {extraComps.map(comp => (
                 <div
                   key={comp.id}
                   className={`rounded-xl border p-4 transition-all duration-300 ${
