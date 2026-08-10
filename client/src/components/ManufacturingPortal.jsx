@@ -19,6 +19,18 @@ const normalizeProductName = (name) => String(name || '').trim().toLowerCase();
 const displayComponentNote = (component) => component.note?.startsWith('Auto-linked from product "')
   ? component.component_name
   : (component.note || '');
+const parseJobNotes = (value) => {
+  if (!value) return { general: '', productNotes: {} };
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && parsed.productNotes) {
+      return { general: parsed.general || '', productNotes: parsed.productNotes };
+    }
+  } catch (_) {
+    // Older jobs store a plain-text general note.
+  }
+  return { general: value, productNotes: {} };
+};
 
 export default function ManufacturingPortal({ role }) {
   const { addToast } = useToastStore();
@@ -157,10 +169,14 @@ export default function ManufacturingPortal({ role }) {
             product_id,
             quantity,
             description,
+            base_price,
+            custom_price_override,
+            final_unit_price,
             products (
               id,
               name,
               model_number,
+              variants,
               brands (
                 name
               )
@@ -192,6 +208,26 @@ export default function ManufacturingPortal({ role }) {
       .order('created_at', { ascending: true });
     if (error) console.error('fetchJobComponents error:', error);
     setJobComponents(data || []);
+  }
+
+  async function handleUpdateProductNote(productKey, value) {
+    if (!selectedJob) return;
+    const currentNotes = parseJobNotes(selectedJob.notes);
+    const notes = {
+      ...currentNotes,
+      productNotes: { ...currentNotes.productNotes, [productKey]: value }
+    };
+    const serializedNotes = JSON.stringify(notes);
+    const { error } = await supabase
+      .from('manufacturing_jobs')
+      .update({ notes: serializedNotes })
+      .eq('id', selectedJob.id);
+    if (error) {
+      addToast(`Failed to save product note: ${error.message}`, 'error');
+      return;
+    }
+    setSelectedJob(previous => ({ ...previous, notes: serializedNotes }));
+    setJobs(previous => previous.map(job => job.id === selectedJob.id ? { ...job, notes: serializedNotes } : job));
   }
 
   async function fetchMfgProducts() {
@@ -489,14 +525,18 @@ export default function ManufacturingPortal({ role }) {
     // created before product_id existed.
     const quoteProducts = Object.values(quoteItems.reduce((products, qi) => {
       const id = qi.products?.id || qi.product_id;
-      const name = qi.products?.name || 'Unknown Product';
-      const key = id ? `product-${id}` : `quote-${normalizeProductName(name)}`;
-      const variation = qi.description || qi.products?.model_number || qi.products?.brands?.name || '';
-      if (!products[key]) products[key] = { key, name, variation, qty: 0 };
+      const baseName = qi.products?.name || 'Unknown Product';
+      const itemPrice = Number(qi.custom_price_override ?? qi.base_price ?? qi.final_unit_price);
+      const selectedVariant = (qi.products?.variants || []).find(variant => Number(variant.price) === itemPrice)?.name?.trim();
+      const productName = qi.products?.model_number ? `${baseName} - ${qi.products.model_number}` : baseName;
+      const nameWithWattage = selectedVariant ? `${productName} (${selectedVariant})` : productName;
+      const name = qi.products?.brands?.name ? `${nameWithWattage} - ${qi.products.brands.name}` : nameWithWattage;
+      const key = id ? `product-${id}` : `quote-${normalizeProductName(baseName)}`;
+      if (!products[key]) products[key] = { key, name, baseName, qty: 0 };
       products[key].qty += Number(qi.quantity) || 0;
       return products;
     }, {}));
-    const quoteKeyByName = new Map(quoteProducts.map(product => [normalizeProductName(product.name), product.key]));
+    const quoteKeyByName = new Map(quoteProducts.map(product => [normalizeProductName(product.baseName), product.key]));
     const grouped = {};
     const extraComps = [];
 
@@ -530,8 +570,8 @@ export default function ManufacturingPortal({ role }) {
         // Sort components strictly by sort_order
         const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         finalGroups.push({
+          key: qp.key,
           name: qp.name,
-          variation: qp.variation,
           qty: qp.qty,
           components: sortedComps,
           isQuoteProduct: true
@@ -544,6 +584,7 @@ export default function ManufacturingPortal({ role }) {
     Object.entries(grouped).forEach(([key, comps]) => {
       const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       finalGroups.push({
+        key,
         name: comps[0]?.product_name || key,
         qty: null,
         components: sortedComps,
@@ -582,9 +623,7 @@ export default function ManufacturingPortal({ role }) {
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-905 text-sm sm:text-base leading-tight">{g.name}</h3>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">
-                    {g.variation ? `Variation: ${g.variation}` : 'Product Recipe'}
-                  </p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">Product Recipe</p>
                 </div>
               </div>
               {g.qty !== null && (
@@ -595,8 +634,17 @@ export default function ManufacturingPortal({ role }) {
             </div>
 
             {g.components.length === 0 ? (
-              <div className="text-center py-6 text-gray-400 text-xs italic">
-                No components linked to this product in the job.
+              <div className="space-y-3">
+                <div className="text-center py-3 text-gray-400 text-xs italic">
+                  No components linked to this product in the job.
+                </div>
+                <input
+                  type="text"
+                  placeholder="Add a note for this product..."
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  defaultValue={parseJobNotes(selectedJob.notes).productNotes[g.key] || ''}
+                  onBlur={event => handleUpdateProductNote(g.key, event.target.value)}
+                />
               </div>
             ) : (
               <div className="space-y-3">
@@ -668,6 +716,13 @@ export default function ManufacturingPortal({ role }) {
                     </div>
                   </div>
                 ))}
+                <input
+                  type="text"
+                  placeholder="Add a note for this product..."
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  defaultValue={parseJobNotes(selectedJob.notes).productNotes[g.key] || ''}
+                  onBlur={event => handleUpdateProductNote(g.key, event.target.value)}
+                />
               </div>
             )}
           </div>
@@ -843,15 +898,15 @@ export default function ManufacturingPortal({ role }) {
                   Customer: {quoteDetails.customerName || 'Walk-in'}{quoteDetails.projectName ? ` • Project: ${quoteDetails.projectName}` : ''}
                 </p>
               )}
-              <p className="text-[10px] text-gray-400 mt-0.5">
+              <p className="text-xs font-bold text-gray-700 mt-0.5">
                 Sent to build: {new Date(selectedJob.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
               </p>
               {selectedJob.completed_by && selectedJob.status === 'Completed' ? (
                 <p className="text-[10px] text-green-700 font-bold bg-green-50 px-1.5 py-0.5 rounded border border-green-100 mt-1 inline-block">
                   Completed by: {selectedJob.completed_by}
                 </p>
-              ) : selectedJob.notes ? (
-                <p className="text-xs text-gray-500 truncate mt-0.5">{selectedJob.notes}</p>
+              ) : parseJobNotes(selectedJob.notes).general ? (
+                <p className="text-xs text-gray-500 truncate mt-0.5">{parseJobNotes(selectedJob.notes).general}</p>
               ) : null}
             </div>
           </div>
@@ -1198,8 +1253,8 @@ export default function ManufacturingPortal({ role }) {
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-gray-900 text-sm leading-tight">{job.title}</h3>
-                      {job.notes ? (
-                        <p className="text-xs text-gray-500 mt-1 truncate">{job.notes}</p>
+                      {parseJobNotes(job.notes).general ? (
+                        <p className="text-xs text-gray-500 mt-1 truncate">{parseJobNotes(job.notes).general}</p>
                       ) : null}
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap flex-none border ${cfg.color}`}>
@@ -1207,7 +1262,7 @@ export default function ManufacturingPortal({ role }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-2">
-                    <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
+                    <span className="text-sm text-gray-700 flex items-center gap-1 font-bold">
                       <Clock className="w-3.5 h-3.5" />
                       Sent: {new Date(job.created_at).toLocaleDateString('en-GB')} {new Date(job.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -1279,7 +1334,7 @@ export default function ManufacturingPortal({ role }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-2.5">
-                    <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
+                    <span className="text-sm text-gray-700 flex items-center gap-1 font-bold">
                       <Clock className="w-3.5 h-3.5" />
                       Sent: {new Date(job.created_at).toLocaleDateString('en-GB')} {new Date(job.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
