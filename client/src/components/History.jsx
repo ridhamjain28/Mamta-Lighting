@@ -232,7 +232,7 @@ export default function History({ setActiveTab, role }) {
                 is_collected: false,
                 product_id: prodId,
                 product_name: qi.products?.name || 'Unknown Product',
-                note: `Auto-linked from product "${qi.products?.name || 'Unknown'}" (Qty: ${qi.quantity})`,
+                note: recipe.raw_components?.name || 'Unknown Component',
                 sort_order: sortOrder++
               });
             }

@@ -190,7 +190,7 @@ export default function QuoteSummary() {
               is_collected: false,
               product_id: item.id,
               product_name: item.name || 'Unknown Product',
-              note: `Auto-linked from product "${item.name || 'Unknown'}" (Qty: ${buildQty})`,
+              note: recipe.raw_components?.name || 'Unknown Component',
               sort_order: sortOrder++
             });
           });

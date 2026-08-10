@@ -16,6 +16,9 @@ const STATUS_CONFIG = {
 };
 
 const normalizeProductName = (name) => String(name || '').trim().toLowerCase();
+const displayComponentNote = (component) => component.note?.startsWith('Auto-linked from product "')
+  ? component.component_name
+  : (component.note || '');
 
 export default function ManufacturingPortal({ role }) {
   const { addToast } = useToastStore();
@@ -32,6 +35,7 @@ export default function ManufacturingPortal({ role }) {
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState(null);
   const [quoteItems, setQuoteItems] = useState([]);
+  const [quoteDetails, setQuoteDetails] = useState(null);
 
   // Job form
   const [showNewJobModal, setShowNewJobModal] = useState(false);
@@ -138,6 +142,7 @@ export default function ManufacturingPortal({ role }) {
   async function fetchQuotationDetails(quoteId) {
     if (!quoteId) {
       setQuoteItems([]);
+      setQuoteDetails(null);
       return;
     }
     try {
@@ -151,10 +156,14 @@ export default function ManufacturingPortal({ role }) {
             id,
             product_id,
             quantity,
+            description,
             products (
               id,
               name,
-              model_number
+              model_number,
+              selected_wattage,
+              color,
+              sub_brand
             )
           )
         `)
@@ -162,12 +171,15 @@ export default function ManufacturingPortal({ role }) {
         .single();
       if (data && data.quotation_items) {
         setQuoteItems(data.quotation_items);
+        setQuoteDetails({ customerName: data.customer_name, projectName: data.project_name });
       } else {
         setQuoteItems([]);
+        setQuoteDetails(null);
       }
     } catch (e) {
       console.error('fetchQuotationDetails error:', e);
       setQuoteItems([]);
+      setQuoteDetails(null);
     }
   }
 
@@ -479,7 +491,8 @@ export default function ManufacturingPortal({ role }) {
       const id = qi.products?.id || qi.product_id;
       const name = qi.products?.name || 'Unknown Product';
       const key = id ? `product-${id}` : `quote-${normalizeProductName(name)}`;
-      if (!products[key]) products[key] = { key, name, qty: 0 };
+      const variation = qi.description || qi.products?.selected_wattage || qi.products?.model_number || qi.products?.color || qi.products?.sub_brand || '';
+      if (!products[key]) products[key] = { key, name, variation, qty: 0 };
       products[key].qty += Number(qi.quantity) || 0;
       return products;
     }, {}));
@@ -518,6 +531,7 @@ export default function ManufacturingPortal({ role }) {
         const sortedComps = [...comps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         finalGroups.push({
           name: qp.name,
+          variation: qp.variation,
           qty: qp.qty,
           components: sortedComps,
           isQuoteProduct: true
@@ -545,7 +559,7 @@ export default function ManufacturingPortal({ role }) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={async () => {
-                    const allCollected = g.components.every(c => c.is_collected);
+                    const allCollected = g.components.length > 0 && g.components.every(c => c.is_collected);
                     const updates = g.components.map(c => ({ id: c.id, is_collected: !allCollected }));
 
                     for (const u of updates) {
@@ -558,7 +572,7 @@ export default function ManufacturingPortal({ role }) {
                     }));
                   }}
                   className={`flex-none w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                    g.components.every(c => c.is_collected) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 hover:border-blue-400 bg-white'
+                    g.components.length > 0 && g.components.every(c => c.is_collected) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 hover:border-blue-400 bg-white'
                   }`}
                 >
                   {g.components.length > 0 && g.components.every(c => c.is_collected) && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />}
@@ -568,7 +582,9 @@ export default function ManufacturingPortal({ role }) {
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-905 text-sm sm:text-base leading-tight">{g.name}</h3>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">Product Recipe</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">
+                    {g.variation ? `Variation: ${g.variation}` : 'Product Recipe'}
+                  </p>
                 </div>
               </div>
               {g.qty !== null && (
@@ -645,7 +661,7 @@ export default function ManufacturingPortal({ role }) {
                           type="text"
                           placeholder="Add a note (e.g. took extra backup)..."
                           className="mt-2 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          defaultValue={comp.note ?? ''}
+                          defaultValue={displayComponentNote(comp)}
                           onBlur={e => handleUpdateQtyNote(comp, 'note', e.target.value)}
                         />
                       </div>
@@ -731,7 +747,7 @@ export default function ManufacturingPortal({ role }) {
                         type="text"
                         placeholder="Add a note..."
                         className="mt-2 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        defaultValue={comp.note ?? ''}
+                        defaultValue={displayComponentNote(comp)}
                         onBlur={e => handleUpdateQtyNote(comp, 'note', e.target.value)}
                       />
                     </div>
@@ -815,13 +831,21 @@ export default function ManufacturingPortal({ role }) {
         <div className="bg-white border-b border-gray-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => { setSelectedJob(null); setJobComponents([]); setQuoteItems([]); }}
+              onClick={() => { setSelectedJob(null); setJobComponents([]); setQuoteItems([]); setQuoteDetails(null); }}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="min-w-0">
               <h2 className="font-bold text-gray-900 text-sm sm:text-base truncate leading-tight">{selectedJob.title}</h2>
+              {quoteDetails && (
+                <p className="text-[10px] text-gray-500 mt-1 truncate">
+                  Customer: {quoteDetails.customerName || 'Walk-in'}{quoteDetails.projectName ? ` • Project: ${quoteDetails.projectName}` : ''}
+                </p>
+              )}
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                Sent to build: {new Date(selectedJob.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+              </p>
               {selectedJob.completed_by && selectedJob.status === 'Completed' ? (
                 <p className="text-[10px] text-green-700 font-bold bg-green-50 px-1.5 py-0.5 rounded border border-green-100 mt-1 inline-block">
                   Completed by: {selectedJob.completed_by}
@@ -852,7 +876,7 @@ export default function ManufacturingPortal({ role }) {
         {/* DETAILS SECTION */}
         <div className="flex-1 p-4 space-y-4">
           {/* Progress bar */}
-          {jobComponents.length > 0 && (
+          {(totalProducts > 0 || jobComponents.length > 0) && (
             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-xs">
               <div className="flex justify-between text-xs mb-2">
                 <span className="font-bold text-gray-700">Completion Status</span>
@@ -898,7 +922,7 @@ export default function ManufacturingPortal({ role }) {
 
 
           {/* Grouped Component List */}
-          {totalCount === 0 ? (
+          {totalCount === 0 && quoteItems.length === 0 ? (
             <div className="text-center py-12 text-gray-400 bg-white border border-gray-200 rounded-xl">
               <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-semibold text-gray-500">No components mapped for this job</p>
@@ -1185,7 +1209,7 @@ export default function ManufacturingPortal({ role }) {
                   <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-2">
                     <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
                       <Clock className="w-3.5 h-3.5" />
-                      {new Date(job.updated_at).toLocaleDateString('en-GB')}
+                      Sent: {new Date(job.created_at).toLocaleDateString('en-GB')} {new Date(job.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <div className="flex items-center gap-2">
                       {role === 'admin' && (
@@ -1257,7 +1281,7 @@ export default function ManufacturingPortal({ role }) {
                   <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-2.5">
                     <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
                       <Clock className="w-3.5 h-3.5" />
-                      {new Date(job.updated_at).toLocaleDateString('en-GB')}
+                      Sent: {new Date(job.created_at).toLocaleDateString('en-GB')} {new Date(job.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <div className="flex items-center gap-2">
                       {!job.approved && (
