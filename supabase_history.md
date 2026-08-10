@@ -159,6 +159,31 @@ Components picked for each job.
 
 Realtime enabled on this table.
 
+### `manufacturing_products`
+Stores manufactured products (e.g. Downlight 12W, Strip Light COB).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `name` | TEXT | Product name |
+| `description` | TEXT | Optional |
+| `created_at` | TIMESTAMPTZ | Auto |
+
+Realtime enabled on this table.
+
+### `manufacturing_product_components`
+Links manufactured products to their raw components (BOM / Recipe).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `product_id` | UUID | FK to manufacturing_products |
+| `component_id` | UUID | FK to raw_components |
+| `default_qty` | NUMERIC | Default unit quantity |
+| `created_at` | TIMESTAMPTZ | Auto |
+
+Realtime enabled on this table.
+
 ---
 
 ## Migration History
@@ -170,3 +195,4 @@ Realtime enabled on this table.
 | Unknown | supabase_migration_description.sql — added description to quotation_items |
 | Unknown | supabase_migration_unit_types.sql — created unit_types table |
 | 2026-08-09 | Manufacturing feature — app_settings, raw_components, manufacturing_jobs, manufacturing_job_components |
+| 2026-08-10 | Manufactured Products Recipes — manufacturing_products, manufacturing_product_components |

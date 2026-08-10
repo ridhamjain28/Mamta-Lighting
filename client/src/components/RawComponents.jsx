@@ -116,40 +116,51 @@ export default function RawComponents() {
       {/* Add Component */}
       <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
         <p className="text-sm font-semibold text-gray-700 mb-3">Add New Component</p>
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-          <input
-            type="text"
-            placeholder="Component name (e.g. LED Chip)"
-            className="sm:col-span-5 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          />
-          <input
-            type="text"
-            placeholder="Description (optional)"
-            className="sm:col-span-4 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={newDesc}
-            onChange={e => setNewDesc(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          />
-          <input
-            type="number"
-            min="0"
-            placeholder="Initial Stock"
-            className="sm:col-span-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={newStock}
-            onChange={e => setNewStock(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          />
-          <button
-            onClick={handleAdd}
-            disabled={adding || !newName.trim()}
-            className="sm:col-span-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
-            Add
-          </button>
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+          <div className="sm:col-span-5 flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-600">Component Name</label>
+            <input
+              type="text"
+              placeholder="e.g. LED Chip"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
+          </div>
+          <div className="sm:col-span-4 flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-600">Description (optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. Philips 12W Driver"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              value={newDesc}
+              onChange={e => setNewDesc(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
+          </div>
+          <div className="sm:col-span-2 flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-600">Initial Stock</label>
+            <input
+              type="number"
+              min="0"
+              placeholder="0"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              value={newStock}
+              onChange={e => setNewStock(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
+          </div>
+          <div className="sm:col-span-1">
+            <button
+              onClick={handleAdd}
+              disabled={adding || !newName.trim()}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 whitespace-nowrap h-[38px]"
+            >
+              <Plus className="w-4 h-4" />
+              Add
+            </button>
+          </div>
         </div>
       </div>
 

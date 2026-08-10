@@ -3,8 +3,11 @@ import { supabase } from '../supabase';
 import { useToastStore } from '../store/useToastStore';
 import {
   Plus, ChevronLeft, Check, Pencil, Trash2,
-  ClipboardList, Loader2, Clock, CheckCircle2, Circle
+  ClipboardList, Loader2, Clock, CheckCircle2, Circle,
+  Package, Boxes
 } from 'lucide-react';
+import ManufacturingProducts from './ManufacturingProducts';
+import RawComponents from './RawComponents';
 
 const STATUS_CONFIG = {
   'Not Started': { color: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' },
@@ -14,6 +17,15 @@ const STATUS_CONFIG = {
 
 export default function ManufacturingPortal({ role }) {
   const { addToast } = useToastStore();
+  const [portalTab, setPortalTab] = useState('jobs');
+  
+  // Load Product states
+  const [showLoadProductModal, setShowLoadProductModal] = useState(false);
+  const [mfgProducts, setMfgProducts] = useState([]);
+  const [selectedMfgProduct, setSelectedMfgProduct] = useState(null);
+  const [productBuildQty, setProductBuildQty] = useState(1);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -216,6 +228,79 @@ export default function ManufacturingPortal({ role }) {
     setSavingStatus(false);
   }
 
+  useEffect(() => {
+    if (showLoadProductModal) {
+      fetchMfgProducts();
+    }
+  }, [showLoadProductModal]);
+
+  async function fetchMfgProducts() {
+    setLoadingProducts(true);
+    try {
+      const { data, error } = await supabase
+        .from('manufacturing_products')
+        .select(`
+          *,
+          manufacturing_product_components (
+            id,
+            default_qty,
+            component_id,
+            raw_components (
+              id,
+              name,
+              stock_qty
+            )
+          )
+        `)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      setMfgProducts(data || []);
+      if (data && data.length > 0) {
+        setSelectedMfgProduct(data[0]);
+      }
+    } catch (e) {
+      console.error('Error fetching mfg products:', e);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
+
+  async function handleLoadProductTemplate() {
+    if (!selectedMfgProduct || !selectedJob) return;
+    const comps = selectedMfgProduct.manufacturing_product_components || [];
+    if (comps.length === 0) {
+      addToast('Selected product has no components in its recipe', 'warning');
+      return;
+    }
+
+    const multiplier = Number(productBuildQty) || 1;
+    const maxOrder = jobComponents.length > 0 ? Math.max(...jobComponents.map(c => c.sort_order || 0)) : 0;
+
+    const inserts = comps.map((mpc, idx) => ({
+      job_id: selectedJob.id,
+      component_id: mpc.component_id,
+      component_name: mpc.raw_components?.name || 'Unknown Component',
+      planned_qty: (mpc.default_qty || 1) * multiplier,
+      is_collected: false,
+      sort_order: maxOrder + idx + 1
+    }));
+
+    const { data, error } = await supabase
+      .from('manufacturing_job_components')
+      .insert(inserts)
+      .select();
+
+    if (error) {
+      addToast('Failed to load product recipe: ' + error.message, 'error');
+    } else {
+      setJobComponents(prev => [...prev, ...data]);
+      setShowLoadProductModal(false);
+      setSelectedMfgProduct(null);
+      setProductBuildQty(1);
+      addToast(`Recipe for "${selectedMfgProduct.name}" (Qty: ${multiplier}) loaded into job!`, 'success');
+    }
+  }
+
   const collectedCount = jobComponents.filter(c => c.is_collected).length;
   const totalCount = jobComponents.length;
   const progressPct = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0;
@@ -403,16 +488,105 @@ export default function ManufacturingPortal({ role }) {
           </div>
         )}
 
-        {/* Floating Add Component Button (only on details tab) */}
+        {/* Floating Actions (only on details tab) */}
         {activeTab === 'details' && (
-          <div className="fixed bottom-6 left-0 right-0 flex justify-center px-4 z-30">
+          <div className="fixed bottom-6 left-0 right-0 flex justify-center px-4 gap-3 z-30">
             <button
               onClick={() => setShowAddComponentDrawer(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl shadow-lg font-semibold flex items-center gap-2 text-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-lg font-semibold flex items-center gap-1.5 text-xs sm:text-sm"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" strokeWidth={2.5} />
               Add Component
             </button>
+            <button
+              onClick={() => setShowLoadProductModal(true)}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-3 rounded-xl shadow-lg font-semibold flex items-center gap-1.5 text-xs sm:text-sm"
+            >
+              <Package className="w-4 h-4" strokeWidth={2.5} />
+              Load Product
+            </button>
+          </div>
+        )}
+
+        {/* Load Product Modal */}
+        {showLoadProductModal && (
+          <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40">
+            <div className="bg-white rounded-t-2xl p-5 max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-900">Load Product Recipe</h3>
+                <button onClick={() => { setShowLoadProductModal(false); setSelectedMfgProduct(null); setProductBuildQty(1); }} className="p-1.5 rounded-lg hover:bg-gray-100">
+                  <span className="text-xl text-gray-500">×</span>
+                </button>
+              </div>
+
+              {loadingProducts ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                </div>
+              ) : mfgProducts.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <p>No product recipes defined yet.</p>
+                  <p className="text-xs mt-1">Create products in the "Products" tab of the Manufacturing Portal first.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 overflow-y-auto flex-1">
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1">Select Product</label>
+                    <select
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={selectedMfgProduct?.id || ''}
+                      onChange={e => {
+                        const prod = mfgProducts.find(p => p.id === e.target.value);
+                        setSelectedMfgProduct(prod);
+                      }}
+                    >
+                      {mfgProducts.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1 font-bold">Build Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-center font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={productBuildQty}
+                      onChange={e => setProductBuildQty(Math.max(1, Number(e.target.value) || 1))}
+                    />
+                  </div>
+
+                  {selectedMfgProduct && (
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Components to be added:</p>
+                      <div className="space-y-1.5">
+                        {selectedMfgProduct.manufacturing_product_components?.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic">No components in this recipe.</p>
+                        ) : (
+                          selectedMfgProduct.manufacturing_product_components.map((mpc, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-xs text-gray-600">
+                              <span>{mpc.raw_components?.name || 'Unknown Component'}</span>
+                              <span className="font-semibold text-gray-900">
+                                {(mpc.default_qty || 1) * productBuildQty} units ({(mpc.default_qty || 1)} × {productBuildQty})
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleLoadProductTemplate}
+                    disabled={!selectedMfgProduct || selectedMfgProduct.manufacturing_product_components?.length === 0}
+                    className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-orange-300 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Package className="w-5 h-5" /> Load components into Job
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -504,80 +678,123 @@ export default function ManufacturingPortal({ role }) {
   // ─── JOB LIST VIEW ────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col min-h-full bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="bg-orange-100 p-2 rounded-lg">
-            <ClipboardList className="w-5 h-5 text-orange-600" />
-          </div>
-          <h1 className="text-lg font-bold text-gray-900">Manufacturing</h1>
+      {/* Header with tabs inline */}
+      <div className="bg-white border-b border-gray-200 px-4 py-1.5 flex items-center justify-between sticky top-0 z-10 flex-none gap-2 flex-wrap">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setPortalTab('jobs')}
+            className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              portalTab === 'jobs'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" /> Jobs
+          </button>
+          <button
+            onClick={() => setPortalTab('products')}
+            className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              portalTab === 'products'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Package className="w-4 h-4" /> Products
+          </button>
+          <button
+            onClick={() => setPortalTab('raw-components')}
+            className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              portalTab === 'raw-components'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Boxes className="w-4 h-4" /> Raw Components
+          </button>
         </div>
-        <button
-          onClick={() => setShowNewJobModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Job
-        </button>
-      </div>
 
-      {/* Job List */}
-      <div className="flex-1 p-4 space-y-3">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-          </div>
-        ) : jobs.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-30" />
-            <p className="font-semibold text-gray-500">No manufacturing jobs yet</p>
-            <p className="text-sm mt-1">Create a new job or send a quotation to manufacturing.</p>
-          </div>
-        ) : (
-          jobs.map(job => {
-            const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG['Not Started'];
-            return (
-              <div
-                key={job.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 active:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 text-sm leading-tight">{job.title}</h3>
-                    {job.notes && <p className="text-xs text-gray-500 mt-0.5 truncate">{job.notes}</p>}
-                  </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap flex-none ${cfg.color}`}>
-                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${cfg.dot} mr-1.5`} />
-                    {job.status}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {new Date(job.updated_at).toLocaleDateString()}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {role === 'admin' && (
-                      <button
-                        onClick={() => handleDeleteJob(job)}
-                        className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => { setSelectedJob(job); setActiveTab('details'); }}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      Open →
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })
+        {portalTab === 'jobs' && (
+          <button
+            onClick={() => setShowNewJobModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Job
+          </button>
         )}
       </div>
+
+      {/* Tab Contents */}
+      {portalTab === 'jobs' && (
+        <div className="flex-1 p-4 space-y-3">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-30" />
+              <p className="font-semibold text-gray-500">No manufacturing jobs yet</p>
+              <p className="text-sm mt-1">Create a new job or send a quotation to manufacturing.</p>
+            </div>
+          ) : (
+            jobs.map(job => {
+              const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG['Not Started'];
+              return (
+                <div
+                  key={job.id}
+                  className="bg-white rounded-xl border border-gray-200 p-4 active:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-900 text-sm leading-tight">{job.title}</h3>
+                      {job.notes && <p className="text-xs text-gray-500 mt-0.5 truncate">{job.notes}</p>}
+                    </div>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap flex-none ${cfg.color}`}>
+                      <span className={`inline-block w-1.5 h-1.5 rounded-full ${cfg.dot} mr-1.5`} />
+                      {job.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {new Date(job.updated_at).toLocaleDateString()}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {role === 'admin' && (
+                        <button
+                          onClick={() => handleDeleteJob(job)}
+                          className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setSelectedJob(job); setActiveTab('details'); }}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Open →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {portalTab === 'products' && (
+        <div className="flex-1 p-4 overflow-y-auto">
+          <ManufacturingProducts />
+        </div>
+      )}
+
+      {portalTab === 'raw-components' && (
+        <div className="flex-1 p-4 overflow-y-auto">
+          <RawComponents />
+        </div>
+      )}
 
       {/* New Job Modal */}
       {showNewJobModal && (
