@@ -24,6 +24,12 @@ function App() {
   const { systemMode, setSystemMode, items, quoteType } = useQuoteStore();
 
   useEffect(() => {
+    // Silently wake up cloud server in the background
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (apiUrl) {
+      fetch(`${apiUrl}/api/keepalive`).catch(() => {});
+    }
+
     const handleKeyDown = (e) => {
       if (document.activeElement.type === 'number' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
@@ -44,6 +50,11 @@ function App() {
 
   const handleAuth = (authRole) => {
     setRole(authRole);
+    // Silently ping cloud server when entering via PIN
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (apiUrl) {
+      fetch(`${apiUrl}/api/keepalive`).catch(() => {});
+    }
     if (authRole === 'employee') {
       // Employee goes straight to manufacturing, no system select needed
       setActiveTab('manufacturing');

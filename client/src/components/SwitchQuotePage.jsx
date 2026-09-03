@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 import { supabase } from '../supabase';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { getProductRank } from '../utils/productStandardizer';
 import QuoteSummary from './QuoteSummary';
 import CustomerNameInput from './CustomerNameInput';
@@ -15,7 +15,8 @@ export default function SwitchQuotePage() {
     globalDiscount,
     addItem, removeItem,
     updateItemQuantity, updateItemPrice, updateItemDiscount,
-    saveQuoteToDatabase
+    saveQuoteToDatabase,
+    clearCart
   } = useQuoteStore();
 
   const addToast = useToastStore((s) => s.addToast);
@@ -237,18 +238,34 @@ export default function SwitchQuotePage() {
 
   if (loading) return <div className="flex justify-center items-center h-96"><Loader2 className="w-8 h-8 animate-spin text-purple-500" /></div>;
 
+  const handleClear = () => {
+    clearCart();
+    setLocalInputs({});
+    addToast("Quote cleared", "success");
+  };
+
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
       <div className="bg-white border-b shadow-sm px-5 py-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-lg font-bold text-gray-800">Customer Details</h2>
-          <button onClick={async () => {
-            const saved = await saveQuoteToDatabase('Draft');
-            if (saved) addToast("Quote saved successfully", "success");
-          }} className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-            Save Draft
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClear}
+              className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg font-medium shadow-sm flex items-center gap-1.5 transition-colors text-sm"
+              title="Clear customer details and products"
+            >
+              <RotateCcw className="w-4 h-4 text-gray-500" />
+              Clear
+            </button>
+            <button onClick={async () => {
+              const saved = await saveQuoteToDatabase('Draft');
+              if (saved) addToast("Quote saved successfully", "success");
+            }} className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2 transition-colors text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              Save Draft
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <CustomerNameInput />

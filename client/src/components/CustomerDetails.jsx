@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
-import { ArrowLeft, XCircle, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, XCircle, Save, Loader2, RotateCcw } from 'lucide-react';
 import { toTitleCase } from '../utils/textFormatters';
 import CustomerNameInput from './CustomerNameInput';
 
@@ -28,6 +28,11 @@ export default function CustomerDetails() {
     setIsSaving(false);
   };
 
+  const handleClear = () => {
+    clearCart();
+    addToast("Quote cleared", "success");
+  };
+
   return (
     <div className="p-6 border-b border-gray-200 bg-slate-50">
       <div className="flex items-center justify-between mb-4">
@@ -36,13 +41,21 @@ export default function CustomerDetails() {
         </h2>
         <div className="flex gap-2">
           <button 
+            onClick={handleClear}
+            className="text-sm font-medium text-gray-700 hover:bg-gray-100 flex items-center gap-1 bg-white px-3 py-1.5 rounded border border-gray-300 shadow-sm transition-colors"
+            title="Clear customer details and products"
+          >
+            <RotateCcw className="w-4 h-4 text-gray-500" />
+            Clear
+          </button>
+          <button 
             onClick={handleManualSave}
             disabled={isSaving || items.length === 0}
             className="text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 flex items-center gap-1 bg-white px-3 py-1.5 rounded border border-gray-300 shadow-sm transition-colors"
             title="Save Quote as Draft"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
-            Save
+            Save Draft
           </button>
           {quoteId && (
             <button 

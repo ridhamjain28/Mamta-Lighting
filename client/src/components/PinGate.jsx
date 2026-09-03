@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, Lock } from 'lucide-react';
 
 async function sha256(message) {
@@ -20,6 +20,14 @@ export default function PinGate({ onAuth }) {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
+  // Silently wake up cloud server in the background as soon as user is on the website
+  useEffect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (apiUrl) {
+      fetch(`${apiUrl}/api/keepalive`).catch(() => {});
+    }
+  }, []);
+
   const triggerShake = () => {
     setShake(true);
     setTimeout(() => setShake(false), 600);
@@ -33,6 +41,14 @@ export default function PinGate({ onAuth }) {
 
     try {
       const enteredHash = await sha256(pin.trim());
+
+      if (enteredHash === HASHES.admin || enteredHash === HASHES.employee) {
+        // Fire silent ping on successful PIN entry as well
+        const apiUrl = import.meta.env.VITE_API_URL;
+        if (apiUrl) {
+          fetch(`${apiUrl}/api/keepalive`).catch(() => {});
+        }
+      }
 
       if (enteredHash === HASHES.admin) {
         sessionStorage.setItem('role', 'admin');

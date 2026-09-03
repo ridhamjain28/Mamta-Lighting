@@ -117,16 +117,40 @@ export default function History({ setActiveTab, role }) {
 
   const mapQuotationItems = (quote) => {
     return (quote.quotation_items || []).map((qi, index) => {
-      const baseId = qi.products.selected_wattage ? `${qi.products.id}-${qi.products.selected_wattage}` : qi.products.id;
-      // Add a unique suffix to keep items separate in the cart (e.g. for room-wise lists)
+      const prod = qi.products || {};
+      const baseId = prod.selected_wattage ? `${prod.id || qi.product_id}-${prod.selected_wattage}` : (prod.id || qi.product_id || index);
       const uniqueSuffix = `${Date.now()}-${index}`;
+
+      const listPrice = (qi.custom_price_override !== null && qi.custom_price_override !== undefined && qi.custom_price_override !== '')
+        ? Number(qi.custom_price_override)
+        : Number(qi.base_price ?? prod.base_price ?? 0);
+
+      let effDiscount = '';
+      if (qi.discount_override !== null && qi.discount_override !== undefined && qi.discount_override !== '') {
+        effDiscount = Number(qi.discount_override);
+      } else if (listPrice > 0 && qi.final_unit_price !== null && qi.final_unit_price !== undefined) {
+        const diff = listPrice - Number(qi.final_unit_price);
+        if (diff > 0) {
+          effDiscount = Math.round(((diff / listPrice) * 100) * 100) / 100;
+        } else {
+          effDiscount = 0;
+        }
+      } else if (quote.global_discount) {
+        effDiscount = Number(quote.global_discount);
+      }
+
       return {
-        ...qi.products,
+        ...prod,
+        id: prod.id || qi.product_id,
+        name: prod.name || qi.description || 'Custom Product',
         cartItemId: `${baseId}-${uniqueSuffix}`,
         quantity: qi.quantity,
-        description: qi.description || '',
-        discount_override: qi.discount_override !== null && qi.discount_override !== undefined ? qi.discount_override : '',
-        custom_price_override: qi.custom_price_override
+        base_price: qi.base_price ?? prod.base_price ?? listPrice,
+        description: qi.description || prod.description || '',
+        discount_override: effDiscount,
+        custom_price_override: qi.custom_price_override,
+        final_unit_price: qi.final_unit_price,
+        line_total: qi.line_total
       };
     });
   };
@@ -260,21 +284,36 @@ export default function History({ setActiveTab, role }) {
 
   const handleDownloadPdf = async (quote) => {
     try {
+      setGeneratingPdfId(quote.id);
       const projPart = quote.project_name ? ` - ${quote.project_name}` : '';
       const namePart = quote.customer_name ? quote.customer_name : 'Walk-in';
       const fileName = `Quotation - ${namePart}${projPart}.pdf`;
       
+      let downloaded = false;
+
+      // 1. If stored PDF exists, attempt to fetch and download as blob
       if (quote.pdf_url) {
-        const downloadUrl = `${quote.pdf_url}?download=${encodeURIComponent(fileName)}`;
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } else {
-        // Regenerate on the fly
-        setGeneratingPdfId(quote.id);
+        try {
+          const res = await fetch(quote.pdf_url);
+          if (res.ok) {
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            downloaded = true;
+          }
+        } catch (fetchErr) {
+          console.warn("Could not fetch stored PDF file directly, falling back to on-the-fly regeneration:", fetchErr);
+        }
+      }
+
+      // 2. If no pdf_url or fetching it failed, generate on the fly
+      if (!downloaded) {
         const mappedItems = mapQuotationItems(quote);
         
         const payload = {
@@ -286,20 +325,26 @@ export default function History({ setActiveTab, role }) {
           discount_amount: quote.total_discount,
           gst_amount: quote.tax_amount,
           grand_total: quote.grand_total,
-          gst_included: quote.gst_included || false,
+          gst_included: quote.gst_included || (Number(quote.tax_amount || 0) > 0),
           hide_list_price: quote.hide_list_price || false,
           quote_type: quote.quote_type || 'Image Quote',
           quote_id: quote.id
         };
 
-        const response = await fetch(import.meta.env.VITE_API_URL + '/api/quotation', {
+        const apiUrl = import.meta.env.VITE_API_URL;
+        const response = await fetch(apiUrl + '/api/quotation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-           throw new Error('Failed to generate PDF on the fly');
+          let errMsg = 'Failed to generate PDF on the fly';
+          try {
+            const errJson = await response.json();
+            if (errJson.error) errMsg = errJson.error;
+          } catch(e) {}
+          throw new Error(errMsg);
         }
 
         const pdfBlob = await response.blob();
@@ -311,10 +356,11 @@ export default function History({ setActiveTab, role }) {
         document.body.appendChild(a);
         a.click();
         a.remove();
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
       }
     } catch (err) {
-      console.error(err);
-      addToast("Failed to download PDF.", "error");
+      console.error('PDF download error:', err);
+      addToast(err.message || "Failed to download PDF.", "error");
       if (quote.pdf_url) {
         window.open(quote.pdf_url, '_blank');
       }

@@ -47,11 +47,6 @@ export default function QuoteSummary() {
     setIsGenerating(true);
     setSuccessData(null);
 
-    // If it takes longer than 6 seconds, let the user know the server is waking up
-    const slowServerTimeout = setTimeout(() => {
-      addToast("Waking up cloud server... this can take up to 60 seconds.", "success");
-    }, 6000);
-
     try {
       const activeItems = items.filter(item => Number(item.quantity) > 0);
 
@@ -136,7 +131,6 @@ export default function QuoteSummary() {
       console.error(error);
       addToast("Error generating quotation: " + error.message, "error");
     } finally {
-      clearTimeout(slowServerTimeout);
       setIsGenerating(false);
     }
   };

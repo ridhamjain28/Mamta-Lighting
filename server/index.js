@@ -145,10 +145,21 @@ app.post('/api/quotation', async (req, res) => {
       const customOverride = (item.custom_price_override !== null && item.custom_price_override !== undefined && item.custom_price_override !== '') 
         ? Number(item.custom_price_override) 
         : Number(item.base_price || 0);
-      const discountPercentage = Number(item.discount_override || 0);
-      const netPrice = Math.ceil(Number((customOverride - (customOverride * (discountPercentage / 100))).toFixed(10)));
-      const quantity = Number(item.quantity || 0);
-      const total = netPrice * quantity;
+
+      let netPrice;
+      let total;
+
+      if (item.final_unit_price !== null && item.final_unit_price !== undefined && item.final_unit_price !== '') {
+        netPrice = Number(item.final_unit_price);
+        total = (item.line_total !== null && item.line_total !== undefined && item.line_total !== '')
+          ? Number(item.line_total)
+          : netPrice * Number(item.quantity || 0);
+      } else {
+        const discountPercentage = Number(item.discount_override || 0);
+        netPrice = Math.ceil(Number((customOverride - (customOverride * (discountPercentage / 100))).toFixed(10)));
+        const quantity = Number(item.quantity || 0);
+        total = netPrice * quantity;
+      }
       
       serverSubtotal += total;
 
@@ -173,17 +184,17 @@ app.post('/api/quotation', async (req, res) => {
     // Recalculate serverSubtotal from the resolved items (Promise.all returns resolved array)
     serverSubtotal = validatedItems.reduce((acc, item) => acc + item.serverTotal, 0);
 
-    if (Math.abs(serverSubtotal - subtotal) > 1) {
+    if (Math.abs(serverSubtotal - subtotal) > 2) {
        return res.status(400).json({ error: 'Math verification failed: Subtotal mismatch.' });
     }
 
     let serverGst = gst_included ? Math.ceil(serverSubtotal * 0.18) : 0;
-    if (gst_included && Math.abs(serverGst - (gst_amount || 0)) > 1) {
+    if (gst_included && Math.abs(serverGst - (gst_amount || 0)) > 2) {
        return res.status(400).json({ error: 'Math verification failed: GST mismatch.' });
     }
 
     let serverGrandTotal = Math.ceil(serverSubtotal + serverGst);
-    if (Math.abs(serverGrandTotal - grand_total) > 1) {
+    if (Math.abs(serverGrandTotal - grand_total) > 2) {
        return res.status(400).json({ error: 'Math verification failed: Grand total mismatch.' });
     }
 
@@ -274,21 +285,12 @@ app.post('/api/quotation', async (req, res) => {
     }
 
     // Puppeteer Header Template
-    const headerTemplate = `<span></span>`;
+    const headerTemplate = `<div></div>`;
 
-    // Puppeteer Footer Template (Now includes brand logos on every page)
+    // Puppeteer Footer Template with Page Numbers at the corner
     const footerTemplate = `
-      <div style="font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; padding: 0 15mm; -webkit-print-color-adjust: exact;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-          ${logos.havells ? `<img src="${logos.havells}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
-          ${logos.norisys ? `<img src="${logos.norisys}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
-          ${logos.beton ? `<img src="${logos.beton}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">BETON</span>`}
-          ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
-          ${logos.finolex ? `<img src="${logos.finolex}" style="height: 35px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
-        </div>
-        <div style="font-size: 10px; width: 100%; text-align: right; color: #666; padding-top: 5px; border-top: 1px solid #eee;">
-          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-        </div>
+      <div style="font-family: Arial, sans-serif; font-size: 10px; width: 100%; box-sizing: border-box; padding: 0 12mm 3mm 12mm; display: flex; justify-content: flex-end; align-items: center; color: #666; -webkit-print-color-adjust: exact;">
+        <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>
     `;
 
@@ -304,22 +306,21 @@ app.post('/api/quotation', async (req, res) => {
         <meta charset="utf-8">
         <title>${documentTitle}</title>
         <style>
-          html, body { height: 100%; margin: 0; padding: 0; }
-          body { font-family: Arial, sans-serif; font-size: 14px; color: #000; display: flex; flex-direction: column; min-height: 100vh; }
+          html, body { margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; font-size: 13px; color: #000; -webkit-print-color-adjust: exact; }
           
-          .page-content { flex: 1 0 auto; }
-          .page-footer { flex-shrink: 0; margin-top: auto; }
-          
-          .customer-info { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; font-size: 14px; font-weight: bold; margin-top: 20px;}
+          .customer-info { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; font-size: 13px; font-weight: bold; margin-top: 15px;}
           .customer-info-left { line-height: 1.6; }
           .customer-info-right { text-align: right; line-height: 1.6; }
           
-          .quotation-title { text-align: center; font-size: 20px; font-weight: bold; margin: 20px 0; text-decoration: underline;}
+          .quotation-title { text-align: center; font-size: 19px; font-weight: bold; margin: 15px 0 18px 0; text-decoration: underline; letter-spacing: 1px; }
           
           table { width: 100%; border-collapse: collapse; margin-bottom: 0px; border: 2px solid #000; page-break-inside: auto; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
           tr { page-break-inside: avoid; page-break-after: auto; }
-          th, td { border: 1px solid #000; padding: 8px 10px; font-size: 13px; }
-          th { font-weight: bold; text-align: center; border-bottom: 2px solid #000; border-top: 2px solid #000; font-size: 14px; }
+          th, td { border: 1px solid #000; padding: 7px 9px; font-size: 12px; }
+          th { font-weight: bold; text-align: center; border-bottom: 2px solid #000; border-top: 2px solid #000; font-size: 13px; background-color: #fafafa; }
           th:nth-child(3) { text-align: left; }
           .text-center { text-align: center; }
           .text-right { text-align: right; }
@@ -327,7 +328,8 @@ app.post('/api/quotation', async (req, res) => {
           .highlight-qty { border-left: 2px solid #000; border-right: 2px solid #000; font-weight: bold; }
           .highlight-total { border-left: 2px solid #000; border-right: 2px solid #000; font-weight: bold; }
           
-          .product-img { max-width: 100px; max-height: 100px; object-fit: contain; display: block; margin: 0 auto; }
+          .product-img { max-width: 85px; max-height: 85px; object-fit: contain; display: block; margin: 0 auto; }
+          .page-footer-container { page-break-inside: avoid; margin-top: 22px; }
         </style>
       </head>
       <body>
@@ -458,10 +460,10 @@ app.post('/api/quotation', async (req, res) => {
           </tbody>
         </table>
 
-        <!-- Terms and conditions -->
-        <div style="margin-top: 15px; padding-bottom: 0px; page-break-inside: avoid;">
-          <div style="font-size: 11px; line-height: 1.5; margin-bottom: 10px;">
-            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms & Conditions:</h4>
+        <!-- Terms, conditions and Brand Logos footer block -->
+        <div class="page-footer-container">
+          <div style="font-size: 11px; line-height: 1.6; margin-bottom: 15px;">
+            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: bold;">Terms &amp; Conditions:</h4>
             <ol style="padding-left: 20px; margin: 0;">
               <li>Prices are subject to change without prior notice.</li>
               <li>Goods once sold will not be taken back.</li>
@@ -469,22 +471,19 @@ app.post('/api/quotation', async (req, res) => {
               <li>The quotation is only valid till 3 days from the date provided.</li>
               <li>This is inclusive of all the charges (GST, Freight Charges if any).</li>
             </ol>
-            <div style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 12px;">Looking Forward To Your Valuable Order!</div>
+            <div style="text-align: center; font-weight: bold; margin-top: 16px; margin-bottom: 16px; font-size: 12px; letter-spacing: 0.5px;">Looking Forward To Your Valuable Order!</div>
+          </div>
+
+          <!-- Brand Logos lined up with white space -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #ddd; padding-top: 14px; padding-bottom: 6px;">
+            ${logos.havells ? `<img src="${logos.havells}" style="height: 38px; object-fit: contain;" />` : `<span style="font-size: 13px; font-weight: bold;">HAVELLS</span>`}
+            ${logos.norisys ? `<img src="${logos.norisys}" style="height: 48px; object-fit: contain;" />` : `<span style="font-size: 13px; font-weight: bold;">norisys</span>`}
+            ${logos.beton ? `<img src="${logos.beton}" style="height: 38px; object-fit: contain;" />` : `<span style="font-size: 13px; font-weight: bold; color: #1976d2;">BETON</span>`}
+            ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 38px; object-fit: contain;" />` : `<span style="font-size: 13px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
+            ${logos.finolex ? `<img src="${logos.finolex}" style="height: 28px; object-fit: contain;" />` : `<span style="font-size: 13px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
           </div>
         </div>
         </div><!-- end .page-content -->
-
-        <!-- Footer block — pushed to bottom of page via flexbox -->
-        <div class="page-footer" style="font-family: Arial, sans-serif; width: 100%; box-sizing: border-box; -webkit-print-color-adjust: exact; padding-top: 15px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-top: 1px solid #eee; padding-top: 15px;">
-            ${logos.havells ? `<img src="${logos.havells}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold;">HAVELLS</span>`}
-            ${logos.norisys ? `<img src="${logos.norisys}" style="height: 55px;" />` : `<span style="font-size: 14px; font-weight: bold;">norisys</span>`}
-            ${logos.beton ? `<img src="${logos.beton}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">BETON</span>`}
-            ${logos.crabtree ? `<img src="${logos.crabtree}" style="height: 45px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #388e3c;">Crabtree</span>`}
-            ${logos.finolex ? `<img src="${logos.finolex}" style="height: 35px;" />` : `<span style="font-size: 14px; font-weight: bold; color: #1976d2;">Finolex Cables Limited</span>`}
-          </div>
-        </div>
-
 
       </body>
       </html>
@@ -503,16 +502,18 @@ app.post('/api/quotation', async (req, res) => {
       console.log('Timeout waiting for network idle, but proceeding to generate PDF anyway.');
     }
     
-    // Generate PDF (without repeating headers/footers to keep footer on last page)
+    // Generate PDF with page numbers and proper margins
     const pdfBuffer = await page.pdf({ 
       format: 'A4',
       printBackground: true,
-      displayHeaderFooter: false,
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
       margin: { 
-        top: '15mm',    
-        bottom: '15mm', 
-        right: '10mm', 
-        left: '10mm' 
+        top: '18mm',    
+        bottom: '18mm', 
+        right: '12mm', 
+        left: '12mm' 
       }
     });
     await browser.close();
