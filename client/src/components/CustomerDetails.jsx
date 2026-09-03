@@ -21,16 +21,12 @@ export default function CustomerDetails() {
 
   const handleManualSave = async () => {
     setIsSaving(true);
-    const saved = await saveQuoteToDatabase('Draft');
-    if (saved) {
-      addToast("Quotation saved successfully", "success");
-    }
+    await saveQuoteToDatabase('Draft');
     setIsSaving(false);
   };
 
   const handleClear = () => {
     clearCart();
-    addToast("Quote cleared", "success");
   };
 
   return (
