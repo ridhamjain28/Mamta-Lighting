@@ -203,7 +203,7 @@ app.post('/api/quotation', async (req, res) => {
 
     // Build items HTML based on quote type
     const isManualQuote = quote_type === 'Manual Quote';
-    const isImageQuote = quote_type === 'Image Quote';
+    const isImageQuote = quote_type === 'Image Quote' || quote_type === 'Lighting Quote';
 
     let switchBrandStr = 'Switch';
     if (quote_type === 'Switch Quote' && validatedItems && validatedItems.length > 0) {

@@ -17,6 +17,8 @@ import RawComponents from './components/RawComponents';
 import ProductsDatabase from './components/ManufacturingProducts';
 import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare, Eye, Users, ClipboardList, Boxes, LogOut, Package } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
+import { useToastStore } from './store/useToastStore';
+import { supabase } from './supabase';
 
 function App() {
   const [role, setRole] = useState(() => sessionStorage.getItem('role') || null);
@@ -29,6 +31,19 @@ function App() {
     if (apiUrl) {
       fetch(`${apiUrl}/api/keepalive`).catch(() => {});
     }
+
+    // Global Realtime listener for Completed Jobs (Visual Alert Only)
+    const jobsChannel = supabase
+      .channel('global_jobs_completion_alert')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'manufacturing_jobs' }, (payload) => {
+        const newJob = payload.new;
+        const oldJob = payload.old;
+        if (newJob && newJob.status === 'Completed' && oldJob?.status !== 'Completed') {
+          const by = newJob.completed_by ? ` by ${newJob.completed_by}` : '';
+          useToastStore.getState().addToast(`Job Completed: "${newJob.title}" has been completed${by}!`, 'success');
+        }
+      })
+      .subscribe();
 
     const handleKeyDown = (e) => {
       if (document.activeElement.type === 'number' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
@@ -45,6 +60,7 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('wheel', handleWheel);
+      supabase.removeChannel(jobsChannel);
     };
   }, []);
 
@@ -120,7 +136,7 @@ function App() {
   }
 
   // ── ADMIN VIEW ───────────────────────────────────────────────────────────
-  const isImageSystem = systemMode === 'Image Quote';
+  const isImageSystem = systemMode === 'Lighting Quote' || systemMode === 'Image Quote';
   const isSwitchSystem = systemMode === 'Switch Quote';
   const isWireSystem = systemMode === 'Wire Quote';
   const isCustomerDb = systemMode === 'Customer Database';
@@ -180,13 +196,13 @@ function App() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Image Quote */}
-            <button onClick={() => handleSelectSystem('Image Quote')} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full">
+            {/* Lighting Quote */}
+            <button onClick={() => handleSelectSystem('Lighting Quote')} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full">
               <div>
                 <div className="bg-blue-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <PackageSearch className="w-8 h-8 text-blue-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Image Quotation</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Lighting Quotation</h2>
                 <p className="text-gray-500 mb-6 text-base">Build visual quotations with product images for clients.</p>
               </div>
               <span className="text-blue-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">Enter System →</span>
@@ -371,14 +387,12 @@ function App() {
                 >
                   <FileText className="w-4 h-4" /> New Quote
                 </button>
-                {isImageSystem && (
-                  <button
-                    onClick={() => setTimeout(() => startTransition(() => setActiveTab('preview')), 0)}
-                    className={`px-3 py-2 rounded-md font-medium text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                  >
-                    <Eye className="w-4 h-4" /> Preview
-                  </button>
-                )}
+                <button
+                  onClick={() => setTimeout(() => startTransition(() => setActiveTab('preview')), 0)}
+                  className={`px-3 py-2 rounded-md font-medium text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  <Eye className="w-4 h-4" /> Preview
+                </button>
                 <button
                   onClick={() => setTimeout(() => startTransition(() => setActiveTab('history')), 0)}
                   className={`px-3 py-2 rounded-md font-medium text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
@@ -469,7 +483,7 @@ function App() {
           <div className="w-full h-full flex flex-col"><SwitchComparePage /></div>
         )}
 
-        {activeTab === 'preview' && isImageSystem && (
+        {activeTab === 'preview' && systemMode !== 'Customer Database' && (
           <div className="w-full h-full flex flex-col overflow-y-auto"><QuotePreview /></div>
         )}
 

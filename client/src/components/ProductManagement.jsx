@@ -593,7 +593,7 @@ export default function ProductManagement() {
           {/* Product List Section */}
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
             <h2 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">
-              {systemMode === 'Manual Quote' ? 'Manual Products' : 'Image Products'}
+              Lighting Products
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">

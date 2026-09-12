@@ -35,10 +35,15 @@ export default function CustomerDetails() {
 
   return (
     <div className="p-6 border-b border-gray-200 bg-slate-50">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-800">
-          {quoteId ? 'Editing Quotation' : 'Quotation Details'}
-        </h2>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-lg font-bold text-gray-800">
+            {quoteId ? 'Editing Quotation' : 'Quotation Details'}
+          </h2>
+          <span className="text-xs bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-full border border-blue-200">
+            Date: {new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}
+          </span>
+        </div>
         <div className="flex gap-2">
           <button 
             onClick={handleClear}
@@ -66,7 +71,7 @@ export default function CustomerDetails() {
               <XCircle className="w-4 h-4" /> Cancel Edit
             </button>
           )}
-          {quoteType !== 'Image Quote' && (
+          {quoteType !== 'Lighting Quote' && quoteType !== 'Image Quote' && (
             <button 
               onClick={() => setQuoteMetadata({ quoteType: null })}
               className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-white px-2 py-1.5 rounded border border-gray-200 shadow-sm"

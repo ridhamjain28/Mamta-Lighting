@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { FileText, Clock, Search, Trash2, Edit, Copy, RotateCcw, ClipboardList, Loader2 } from 'lucide-react';
+import { FileText, Clock, Search, Trash2, Edit, Copy, RotateCcw, ClipboardList, Loader2, Send } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
+import { openWhatsAppQuotation } from '../utils/whatsapp';
 
 export default function History({ setActiveTab, role }) {
   const [quotes, setQuotes] = useState([]);
@@ -31,8 +32,10 @@ export default function History({ setActiveTab, role }) {
 
       if (systemMode === 'Switch Quote') {
         query = query.in('quote_type', ['Switch Quote', 'Comparison']);
+      } else if (systemMode === 'Lighting Quote' || systemMode === 'Image Quote' || !systemMode) {
+        query = query.in('quote_type', ['Lighting Quote', 'Image Quote']);
       } else {
-        query = query.eq('quote_type', systemMode || 'Image Quote');
+        query = query.eq('quote_type', systemMode);
       }
 
       const { data, error } = await query;
@@ -160,7 +163,7 @@ export default function History({ setActiveTab, role }) {
     
     setQuoteMetadata({
       quoteId: quote.id,
-      quoteType: quote.quote_type || 'Image Quote',
+      quoteType: (!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type,
       status: quote.status || 'Draft',
       items: mapQuotationItems(quote),
       globalDiscount: quote.global_discount || 0,
@@ -184,7 +187,7 @@ export default function History({ setActiveTab, role }) {
     
     setQuoteMetadata({
       quoteId: null, // New Quote
-      quoteType: quote.quote_type || 'Image Quote',
+      quoteType: (!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type,
       status: 'Draft',
       items: mapQuotationItems(quote),
       globalDiscount: quote.global_discount || 0,
@@ -289,64 +292,31 @@ export default function History({ setActiveTab, role }) {
       const namePart = quote.customer_name ? quote.customer_name : 'Walk-in';
       const fileName = `Quotation - ${namePart}${projPart}.pdf`;
       
-      let downloaded = false;
+      const mappedItems = mapQuotationItems(quote);
+      
+      const payload = {
+        customer_name: quote.customer_name,
+        phone_number: quote.phone_number,
+        project_name: quote.project_name,
+        items: mappedItems,
+        subtotal: quote.subtotal,
+        discount_amount: quote.total_discount,
+        gst_amount: quote.tax_amount,
+        grand_total: quote.grand_total,
+        gst_included: quote.gst_included || (Number(quote.tax_amount || 0) > 0),
+        hide_list_price: quote.hide_list_price || false,
+        quote_type: (!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type,
+        quote_id: quote.id
+      };
 
-      // 1. If stored PDF exists, attempt to fetch and download as blob
-      if (quote.pdf_url) {
-        try {
-          const res = await fetch(quote.pdf_url);
-          if (res.ok) {
-            const blob = await res.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-            downloaded = true;
-          }
-        } catch (fetchErr) {
-          console.warn("Could not fetch stored PDF file directly, falling back to on-the-fly regeneration:", fetchErr);
-        }
-      }
+      const apiUrl = import.meta.env.VITE_API_URL;
+      const response = await fetch(apiUrl + '/api/quotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-      // 2. If no pdf_url or fetching it failed, generate on the fly
-      if (!downloaded) {
-        const mappedItems = mapQuotationItems(quote);
-        
-        const payload = {
-          customer_name: quote.customer_name,
-          phone_number: quote.phone_number,
-          project_name: quote.project_name,
-          items: mappedItems,
-          subtotal: quote.subtotal,
-          discount_amount: quote.total_discount,
-          gst_amount: quote.tax_amount,
-          grand_total: quote.grand_total,
-          gst_included: quote.gst_included || (Number(quote.tax_amount || 0) > 0),
-          hide_list_price: quote.hide_list_price || false,
-          quote_type: quote.quote_type || 'Image Quote',
-          quote_id: quote.id
-        };
-
-        const apiUrl = import.meta.env.VITE_API_URL;
-        const response = await fetch(apiUrl + '/api/quotation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          let errMsg = 'Failed to generate PDF on the fly';
-          try {
-            const errJson = await response.json();
-            if (errJson.error) errMsg = errJson.error;
-          } catch(e) {}
-          throw new Error(errMsg);
-        }
-
+      if (response.ok) {
         const pdfBlob = await response.blob();
         const pdfUrl = URL.createObjectURL(pdfBlob);
         
@@ -357,6 +327,24 @@ export default function History({ setActiveTab, role }) {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+      } else if (quote.pdf_url) {
+        // Fallback to existing uploaded PDF
+        const res = await fetch(quote.pdf_url);
+        if (res.ok) {
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } else {
+          window.open(quote.pdf_url, '_blank');
+        }
+      } else {
+        throw new Error('Failed to generate PDF');
       }
     } catch (err) {
       console.error('PDF download error:', err);
@@ -463,7 +451,7 @@ export default function History({ setActiveTab, role }) {
                     <div className="text-xs text-gray-700">{quote.phone_number} {quote.project_name && `• ${quote.project_name}`}</div>
                   </td>
                   <td className="py-3 px-4">
-                    <div className="font-medium text-gray-700 text-xs bg-gray-100 inline-block px-2 py-1 rounded mb-1">{quote.quote_type || 'Image Quote'}</div>
+                    <div className="font-medium text-gray-700 text-xs bg-gray-100 inline-block px-2 py-1 rounded mb-1">{(!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type}</div>
                   </td>
                   <td className="py-3 px-4 font-medium text-gray-900">
                     ₹{quote.grand_total ? parseFloat(quote.grand_total).toLocaleString(undefined, {minimumFractionDigits:2}) : '0.00'}
@@ -481,6 +469,29 @@ export default function History({ setActiveTab, role }) {
                           </button>
                           <button onClick={() => handleDownloadPdf(quote)} disabled={generatingPdfId === quote.id} className={`p-1.5 rounded-md transition-colors ${generatingPdfId === quote.id ? 'text-gray-400 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50'}`} title="Download PDF">
                             <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openWhatsAppQuotation({
+                              customer: {
+                                name: quote.customer_name,
+                                phone: quote.phone_number,
+                                project: quote.project_name
+                              },
+                              quoteMetadata: {
+                                quoteType: quote.quote_type,
+                                items: mapQuotationItems(quote)
+                              },
+                              totals: {
+                                subtotal: quote.subtotal,
+                                discountAmount: quote.total_discount,
+                                gstAmount: quote.tax_amount,
+                                grandTotal: quote.grand_total
+                              }
+                            })}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                            title="Share on WhatsApp"
+                          >
+                            <Send className="w-4 h-4" />
                           </button>
                           {role === 'admin' && (
                             <button

@@ -16,7 +16,7 @@ export default function QuotePreview() {
   const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
 
   const isManualQuote = quoteType === 'Manual Quote';
-  const isImageQuote = quoteType === 'Image Quote';
+  const isImageQuote = quoteType === 'Lighting Quote' || quoteType === 'Image Quote';
 
   const activeItems = items.filter(item => Number(item.quantity) > 0);
 
@@ -103,10 +103,13 @@ export default function QuotePreview() {
                   const netPrice = Math.ceil(Number((customOverride - (customOverride * (discountPercentage / 100))).toFixed(10)));
                   const total = netPrice * item.quantity;
                   
+                  const brandName = item.brands?.name || item.brand_name || '';
                   const productName = item.model_number ? `${item.name} - ${item.model_number}` : item.name;
                   const baseDisplayName = item.selected_wattage ? `${productName} (${item.selected_wattage})` : productName;
                   const nameWithDesc = item.description ? `${baseDisplayName} (${item.description})` : baseDisplayName;
-                  const displayProductName = (isImageQuote && item.brands?.name) ? `${nameWithDesc} - ${item.brands.name}` : nameWithDesc;
+                  const variantInfo = [item.sub_brand, item.color].filter(Boolean).join(' ');
+                  const fullVariantDesc = variantInfo ? `${nameWithDesc} (${variantInfo})` : nameWithDesc;
+                  const displayProductName = brandName ? `${fullVariantDesc} - ${brandName}` : fullVariantDesc;
                   const unit = item.unit_type || 'N';
                   const isUnitN = unit === 'N';
                   const formattedQty = isUnitN ? `${item.quantity} N` : item.quantity;
@@ -185,11 +188,11 @@ export default function QuotePreview() {
 
         {/* Repeating Brands Footer (at bottom of sheet) */}
         <div className="mt-auto pt-6 border-t border-gray-200 flex justify-between items-center opacity-85">
-          <img src="/havells.png" alt="Havells" className="h-[24px] object-contain" />
-          <img src="/norisys.png" alt="Norisys" className="h-[32px] object-contain" />
-          <img src="/beton.png" alt="Beton" className="h-[24px] object-contain" />
-          <img src="/crabtree.png" alt="Crabtree" className="h-[24px] object-contain" />
-          <img src="/finolex.png" alt="Finolex" className="h-[18px] object-contain" />
+          <img src="/havells.png" alt="Havells" className="h-[24px] object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/norisys.png" alt="Norisys" className="h-[32px] object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/beton.png" alt="Beton" className="h-[24px] object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/crabtree.png" alt="Crabtree" className="h-[24px] object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/finolex.png" alt="Finolex" className="h-[18px] object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
         </div>
       </div>
     </div>

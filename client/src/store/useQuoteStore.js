@@ -14,7 +14,7 @@ const defaultState = {
 
 export const useQuoteStore = create((set, get) => ({
   // --- SYSTEM SEPARATION ---
-  systemMode: null, // 'Image Quote', 'Switch Quote', or 'Wire Quote'
+  systemMode: null, // 'Lighting Quote', 'Switch Quote', or 'Wire Quote'
   quoteType: null, // Keeps compatibility with old quoteType references
 
   customerDirectory: [], // Autocomplete directory for customers
@@ -32,6 +32,7 @@ export const useQuoteStore = create((set, get) => ({
   })),
 
   // --- BACKGROUND CACHES ---
+  lightingCache: { ...defaultState },
   imageCache: { ...defaultState },
   switchCache: { ...defaultState },
   wireCache: { ...defaultState },
@@ -39,6 +40,9 @@ export const useQuoteStore = create((set, get) => ({
   setSystemMode: (mode) => set((state) => {
     if (state.systemMode === mode) return {};
     
+    // Normalize mode if someone passes legacy 'Image Quote'
+    const normalizedMode = (mode === 'Image Quote') ? 'Lighting Quote' : mode;
+
     // Save current active state to the cache BEFORE switching
     const currentSnapshot = {
       customer: state.customer,
@@ -51,18 +55,23 @@ export const useQuoteStore = create((set, get) => ({
     };
 
     const updates = { 
-      systemMode: mode,
-      quoteType: mode
+      systemMode: normalizedMode,
+      quoteType: normalizedMode
     };
 
-    if (state.systemMode === 'Image Quote') updates.imageCache = currentSnapshot;
+    if (state.systemMode === 'Lighting Quote' || state.systemMode === 'Image Quote') {
+      updates.lightingCache = currentSnapshot;
+      updates.imageCache = currentSnapshot;
+    }
     if (state.systemMode === 'Switch Quote') updates.switchCache = currentSnapshot;
     if (state.systemMode === 'Wire Quote') updates.wireCache = currentSnapshot;
 
     // Load state from the target cache
-    const targetCache = mode === 'Image Quote' ? (updates.imageCache || state.imageCache) : 
-                        mode === 'Switch Quote' ? (updates.switchCache || state.switchCache) :
-                        (updates.wireCache || state.wireCache);
+    const targetCache = (normalizedMode === 'Lighting Quote' || normalizedMode === 'Image Quote') 
+      ? (updates.lightingCache || state.lightingCache || updates.imageCache || state.imageCache) 
+      : normalizedMode === 'Switch Quote' 
+      ? (updates.switchCache || state.switchCache) 
+      : (updates.wireCache || state.wireCache);
     
     return { ...updates, ...targetCache };
   }),

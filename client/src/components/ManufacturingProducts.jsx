@@ -507,7 +507,7 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
     try {
       const { data: checkProd } = await supabase.from('products').select('show_in_image_quote').eq('id', prod.id).single();
       if (checkProd && checkProd.show_in_image_quote && !isGlobal) {
-        // If it's active in Image Quote, just set show_in_manufacturing to false (hide it)
+        // If it's active in Lighting Quote, just set show_in_manufacturing to false (hide it)
         await supabase.from('products').update({ show_in_manufacturing: false }).eq('id', prod.id);
       } else {
         // Delete permanently
@@ -719,7 +719,7 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
                 {/* Database Locations Tagging */}
                 <div className="mb-3 border-t border-gray-200 pt-2 flex flex-wrap gap-1.5">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${prod.show_in_image_quote ? 'bg-indigo-100 text-indigo-750' : 'bg-gray-100 text-gray-400'}`}>
-                    Image Quote
+                    Lighting Quote
                   </span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${prod.show_in_manufacturing ? 'bg-cyan-100 text-cyan-750' : 'bg-gray-100 text-gray-400'}`}>
                     Manufacturing Portal
@@ -791,7 +791,7 @@ export default function ManufacturingProducts({ role = 'admin', isGlobal = true 
                       onChange={e => setShowInImageQuote(e.target.checked)}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
                     />
-                    Image Quotation System
+                    Lighting Quotation System
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
                     <input

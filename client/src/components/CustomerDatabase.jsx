@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { FileText, Search, Trash2, Edit, Copy, Plus, X, Phone, Folder, Users, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { FileText, Search, Trash2, Edit, Copy, Plus, X, Phone, Folder, Users, ChevronDown, ChevronUp, Loader2, Send } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 import { toTitleCase } from '../utils/textFormatters';
+import { openWhatsAppQuotation } from '../utils/whatsapp';
 
 export default function CustomerDatabase({ setActiveTab }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('date'); // 'date' (latest) or 'name' (A-Z)
   const [expandedCustomers, setExpandedCustomers] = useState(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, quote: null });
   const [generatingPdfId, setGeneratingPdfId] = useState(null);
@@ -83,14 +85,15 @@ export default function CustomerDatabase({ setActiveTab }) {
 
   const handleEdit = (quote) => {
     const { setCustomer, setQuoteMetadata, setSystemMode } = useQuoteStore.getState();
+    const effectiveType = (!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type;
     
     // 1. First switch the active quotation system mode
-    setSystemMode(quote.quote_type || 'Image Quote');
+    setSystemMode(effectiveType);
     
     // 2. Set active metadata and cart items
     setQuoteMetadata({
       quoteId: quote.id,
-      quoteType: quote.quote_type || 'Image Quote',
+      quoteType: effectiveType,
       status: quote.status || 'Draft',
       items: mapQuotationItems(quote),
       globalDiscount: quote.global_discount || 0,
@@ -109,17 +112,18 @@ export default function CustomerDatabase({ setActiveTab }) {
       setActiveTab('new-quote');
     }
     
-    addToast(`Editing ${quote.quote_type || 'Image Quote'} for ${quote.customer_name}`, "info");
+    addToast(`Editing ${effectiveType} for ${quote.customer_name}`, "info");
   };
 
   const handleDuplicate = (quote) => {
     const { setCustomer, setQuoteMetadata, setSystemMode } = useQuoteStore.getState();
+    const effectiveType = (!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type;
     
-    setSystemMode(quote.quote_type || 'Image Quote');
+    setSystemMode(effectiveType);
     
     setQuoteMetadata({
       quoteId: null, // Marks as new draft
-      quoteType: quote.quote_type || 'Image Quote',
+      quoteType: effectiveType,
       status: 'Draft',
       items: mapQuotationItems(quote),
       globalDiscount: quote.global_discount || 0,
@@ -145,58 +149,50 @@ export default function CustomerDatabase({ setActiveTab }) {
       const namePart = quote.customer_name ? quote.customer_name : 'Walk-in';
       const fileName = `Quotation - ${namePart}${projPart}.pdf`;
       
-      if (quote.pdf_url) {
-        const downloadUrl = `${quote.pdf_url}?download=${encodeURIComponent(fileName)}`;
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } else {
-        setGeneratingPdfId(quote.id);
-        const mappedItems = mapQuotationItems(quote);
-        
-        const payload = {
-          customer_name: quote.customer_name,
-          phone_number: quote.phone_number,
-          project_name: quote.project_name,
-          items: mappedItems,
-          subtotal: quote.subtotal,
-          discount_amount: quote.total_discount,
-          gst_amount: quote.tax_amount,
-          grand_total: quote.grand_total,
-          gst_included: quote.gst_included || false,
-          hide_list_price: quote.hide_list_price || false,
-          quote_type: quote.quote_type || 'Image Quote',
-          quote_id: quote.id
-        };
+      setGeneratingPdfId(quote.id);
+      const mappedItems = mapQuotationItems(quote);
+      
+      const payload = {
+        customer_name: quote.customer_name,
+        phone_number: quote.phone_number,
+        project_name: quote.project_name,
+        items: mappedItems,
+        subtotal: quote.subtotal,
+        discount_amount: quote.total_discount,
+        gst_amount: quote.tax_amount,
+        grand_total: quote.grand_total,
+        gst_included: quote.gst_included || false,
+        hide_list_price: quote.hide_list_price || false,
+        quote_type: (!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type,
+        quote_id: quote.id
+      };
 
-        const response = await fetch(import.meta.env.VITE_API_URL + '/api/quotation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/quotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-        if (!response.ok) {
-           throw new Error('Failed to generate PDF on the fly');
-        }
-
-        const pdfBlob = await response.blob();
-        const pdfUrl = URL.createObjectURL(pdfBlob);
-        
-        const a = document.createElement('a');
-        a.href = pdfUrl;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+      if (!response.ok) {
+         throw new Error('Failed to generate PDF on the fly');
       }
+
+      const pdfBlob = await response.blob();
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
     } catch (err) {
       console.error(err);
-      addToast("Failed to download PDF.", "error");
       if (quote.pdf_url) {
         window.open(quote.pdf_url, '_blank');
+      } else {
+        addToast("Failed to download PDF.", "error");
       }
     } finally {
       setGeneratingPdfId(null);
@@ -218,7 +214,7 @@ export default function CustomerDatabase({ setActiveTab }) {
         phone_number: newCustomer.phone.trim(),
         project_name: toTitleCase(newCustomer.project.trim()),
         quote_number: 'QT-' + Math.floor(100000 + Math.random() * 900000).toString(),
-        quote_type: 'Image Quote',
+        quote_type: 'Lighting Quote',
         status: 'Draft',
         subtotal: 0,
         tax_amount: 0,
@@ -276,10 +272,32 @@ export default function CustomerDatabase({ setActiveTab }) {
       customerMap[key].quotes.push(quote);
     });
 
-    return Object.values(customerMap).map(c => ({
-      ...c,
-      projects: Array.from(c.projects)
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    const result = Object.values(customerMap).map(c => {
+      // Sort each customer's quotes by latest update/creation date
+      const sortedQuotes = [...c.quotes].sort((a, b) => {
+        const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+        const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+        return timeB - timeA;
+      });
+
+      const latestTimestamp = sortedQuotes.length > 0 
+        ? new Date(sortedQuotes[0].updated_at || sortedQuotes[0].created_at || 0).getTime() 
+        : 0;
+
+      return {
+        ...c,
+        quotes: sortedQuotes,
+        latestTimestamp,
+        projects: Array.from(c.projects)
+      };
+    });
+
+    if (sortBy === 'name') {
+      return result.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // Default: sort by latest quotation created/updated
+      return result.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+    }
   };
 
   const toggleExpand = (key) => {
@@ -357,26 +375,42 @@ export default function CustomerDatabase({ setActiveTab }) {
         </button>
       </div>
 
-      {/* Search Filter */}
-      <div className="relative mb-6">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+      {/* Search & Sort Controls */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by customer name, phone, project, or quotation ID..."
+            className="block w-full pl-11 pr-10 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all"
+          />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by customer name, phone, project, or quotation ID..."
-          className="block w-full pl-11 pr-10 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all"
-        />
-        {searchTerm && (
-          <button 
-            onClick={() => setSearchTerm('')}
-            className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+
+        {/* Sort Filter */}
+        <div className="flex items-center gap-2 flex-none bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2 sm:py-0">
+          <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">Sort:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort customers"
+            className="bg-transparent text-sm font-bold text-gray-800 outline-none cursor-pointer py-1.5 pr-2"
           >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+            <option value="date">Latest Quotations Created</option>
+            <option value="name">Customer Name (A–Z)</option>
+          </select>
+        </div>
       </div>
 
       {/* Customer List Container */}
@@ -475,7 +509,7 @@ export default function CustomerDatabase({ setActiveTab }) {
                           {c.quotes.map(quote => {
                             // Style variables based on type
                             let badgeStyle = 'bg-gray-100 text-gray-700';
-                            if (quote.quote_type === 'Image Quote') badgeStyle = 'bg-blue-50 text-blue-700 border border-blue-100';
+                            if (quote.quote_type === 'Lighting Quote' || quote.quote_type === 'Image Quote') badgeStyle = 'bg-blue-50 text-blue-700 border border-blue-100';
                             if (quote.quote_type === 'Switch Quote') badgeStyle = 'bg-purple-50 text-purple-700 border border-purple-100';
                             if (quote.quote_type === 'Wire Quote') badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
                             if (quote.quote_type === 'Comparison') badgeStyle = 'bg-amber-50 text-amber-700 border border-amber-100';
@@ -497,7 +531,7 @@ export default function CustomerDatabase({ setActiveTab }) {
                                 <td className="py-3 px-3">
                                   <div className="flex flex-col gap-1 items-start">
                                     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${badgeStyle}`}>
-                                      {quote.quote_type || 'Image Quote'}
+                                      {(!quote.quote_type || quote.quote_type === 'Image Quote') ? 'Lighting Quote' : quote.quote_type}
                                     </span>
                                     <span className={`text-[10px] uppercase font-bold tracking-wide ${quote.status === 'Final' ? 'text-green-600' : 'text-gray-400'}`}>
                                       {quote.status || 'Draft'}
@@ -530,6 +564,29 @@ export default function CustomerDatabase({ setActiveTab }) {
                                       title="Download PDF"
                                     >
                                       <FileText className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                      onClick={() => openWhatsAppQuotation({
+                                        customer: {
+                                          name: quote.customer_name,
+                                          phone: quote.phone_number,
+                                          project: quote.project_name
+                                        },
+                                        quoteMetadata: {
+                                          quoteType: quote.quote_type,
+                                          items: mapQuotationItems(quote)
+                                        },
+                                        totals: {
+                                          subtotal: quote.subtotal,
+                                          discountAmount: quote.total_discount,
+                                          gstAmount: quote.tax_amount,
+                                          grandTotal: quote.grand_total
+                                        }
+                                      })}
+                                      className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors" 
+                                      title="Share on WhatsApp"
+                                    >
+                                      <Send className="w-4 h-4" />
                                     </button>
                                     <button 
                                       onClick={() => setDeleteConfirm({ isOpen: true, quote })} 
