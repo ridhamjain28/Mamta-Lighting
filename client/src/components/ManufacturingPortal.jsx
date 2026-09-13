@@ -4,7 +4,7 @@ import { useToastStore } from '../store/useToastStore';
 import {
   Plus, ChevronLeft, Check, Pencil, Trash2,
   ClipboardList, Loader2, Clock, CheckCircle2, Circle,
-  Package, Boxes, Search
+  Package, Boxes, Search, RotateCcw
 } from 'lucide-react';
 import ManufacturingProducts from './ManufacturingProducts';
 import RawComponents from './RawComponents';
