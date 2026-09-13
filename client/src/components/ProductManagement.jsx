@@ -74,8 +74,25 @@ export default function ProductManagement() {
   }, [systemMode]);
 
   async function fetchMetadata() {
-    const { data: brandData } = await supabase.from('brands').select('*');
-    if (brandData) setBrands(brandData.sort((a,b)=>a.name.localeCompare(b.name)));
+    const [{ data: brandData }, { data: switchOnlyData }] = await Promise.all([
+      supabase.from('brands').select('*'),
+      supabase.from('products').select('brand_id').eq('product_type', 'Manual Product')
+    ]);
+
+    const [{ data: lightingProductBrands }] = await Promise.all([
+      supabase.from('products').select('brand_id').or('product_type.eq.Image Product,product_type.is.null')
+    ]);
+
+    if (brandData) {
+      const switchOnlyBrandIds = new Set(
+        (switchOnlyData || [])
+          .map(p => p.brand_id)
+          .filter(id => id && !(lightingProductBrands || []).some(lp => lp.brand_id === id))
+      );
+      // Exclude brands that strictly belong only to switches (e.g. Norisys)
+      const lightingBrands = brandData.filter(b => !switchOnlyBrandIds.has(b.id));
+      setBrands(lightingBrands.sort((a,b)=>a.name.localeCompare(b.name)));
+    }
 
     const { data: unitTypeData } = await supabase.from('unit_types').select('*');
     if (unitTypeData) setUnitTypes(unitTypeData.sort((a,b)=>a.name.localeCompare(b.name)));
