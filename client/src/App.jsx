@@ -33,17 +33,24 @@ function App() {
     }
 
     // Global Realtime listener for Completed Jobs (Visual Alert Only)
-    const jobsChannel = supabase
-      .channel('global_jobs_completion_alert')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'manufacturing_jobs' }, (payload) => {
-        const newJob = payload.new;
-        const oldJob = payload.old;
-        if (newJob && newJob.status === 'Completed' && oldJob?.status !== 'Completed') {
-          const by = newJob.completed_by ? ` by ${newJob.completed_by}` : '';
-          useToastStore.getState().addToast(`Job Completed: "${newJob.title}" has been completed${by}!`, 'success');
-        }
-      })
-      .subscribe();
+    let jobsChannel = null;
+    try {
+      if (supabase && typeof supabase.channel === 'function') {
+        jobsChannel = supabase
+          .channel('global_jobs_completion_alert')
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'manufacturing_jobs' }, (payload) => {
+            const newJob = payload?.new;
+            const oldJob = payload?.old;
+            if (newJob && newJob.status === 'Completed' && oldJob?.status !== 'Completed') {
+              const by = newJob.completed_by ? ` by ${newJob.completed_by}` : '';
+              useToastStore.getState().addToast(`Job Completed: "${newJob.title}" has been completed${by}!`, 'success');
+            }
+          })
+          .subscribe();
+      }
+    } catch (err) {
+      console.warn('Realtime channel subscription error:', err);
+    }
 
     const handleKeyDown = (e) => {
       if (document.activeElement.type === 'number' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
@@ -60,7 +67,11 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('wheel', handleWheel);
-      supabase.removeChannel(jobsChannel);
+      if (jobsChannel && supabase?.removeChannel) {
+        try {
+          supabase.removeChannel(jobsChannel);
+        } catch (_) {}
+      }
     };
   }, []);
 
@@ -102,7 +113,12 @@ function App() {
 
   // ── PIN GATE ────────────────────────────────────────────────────────────
   if (!role) {
-    return <PinGate onAuth={handleAuth} />;
+    return (
+      <>
+        <PinGate onAuth={handleAuth} />
+        <ToastContainer />
+      </>
+    );
   }
 
   // ── EMPLOYEE VIEW: Manufacturing only ────────────────────────────────────
@@ -168,6 +184,7 @@ function App() {
         <div className="flex-1 overflow-auto">
           <ManufacturingPortal role="admin" />
         </div>
+        <ToastContainer />
       </div>
     );
   }
@@ -176,6 +193,7 @@ function App() {
   if (!systemMode) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-6 relative">
+        <ToastContainer />
         <div className="max-w-6xl w-full flex justify-end mb-6">
           <button
             onClick={handleLogout}
