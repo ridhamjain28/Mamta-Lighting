@@ -968,7 +968,7 @@ export default function ManufacturingPortal({ role }) {
 
         {/* DETAILS SECTION */}
         <div className="flex-1 p-4 space-y-4">
-          {selectedJob.status === 'Completed' && (
+          {selectedJob.status === 'Completed' && role === 'admin' && (
             <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-in fade-in duration-200 ${selectedJob.approved ? 'bg-emerald-50/30 border-emerald-200' : 'bg-orange-50/30 border-orange-200'}`}>
               <div className="min-w-0 flex-1">
                 <p className={`text-xs font-bold ${selectedJob.approved ? 'text-emerald-800' : 'text-orange-850'}`}>Admin Approval & Stock Deduction</p>
@@ -983,27 +983,21 @@ export default function ManufacturingPortal({ role }) {
                   <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-105 border border-emerald-250 text-emerald-800 rounded-xl text-xs font-bold shrink-0">
                     <Check className="w-3.5 h-3.5" strokeWidth={3} /> Approved & Deducted
                   </div>
-                  {role === 'admin' && (
-                    <button
-                      onClick={() => handleUnapproveJob(selectedJob)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0"
-                      title="Undo Approval and restore raw component stock"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Undo Approval (Restore Stock)
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleUnapproveJob(selectedJob)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0"
+                    title="Undo Approval and restore raw component stock"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Undo Approval (Restore Stock)
+                  </button>
                 </div>
-              ) : role === 'admin' ? (
+              ) : (
                 <button
                   onClick={() => handleApproveJob(selectedJob)}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-xs shrink-0 self-start sm:self-auto"
                 >
                   Approve & Deduct Stock
                 </button>
-              ) : (
-                <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-105 border border-orange-250 text-orange-800 rounded-xl text-xs font-bold shrink-0 self-start sm:self-auto">
-                  Pending Admin Approval
-                </div>
               )}
             </div>
           )}
@@ -1370,7 +1364,7 @@ export default function ManufacturingPortal({ role }) {
                       Sent: {new Date(job.created_at).toLocaleDateString('en-GB')} {new Date(job.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <div className="flex items-center gap-2">
-                      {!job.approved && (
+                      {!job.approved && role === 'admin' && (
                         <button
                           onClick={() => handleApproveJob(job)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3.5 py-1.5 rounded-xl transition-all shadow-xs"
