@@ -1,6 +1,6 @@
 const xlsx = require('xlsx');
 
-const workbook = xlsx.readFile('D:\\\\Github Repos\\\\Mamta-quotation-system\\\\Switch Quotation System.xlsx');
+const workbook = xlsx.readFile('D:\\\\Github Repos\\\\Mamta-quotation-system\\\\catalogues\\\\Switch Quotation System.xlsx');
 
 for (const sheetName of workbook.SheetNames) {
   console.log(`\n=== Sheet: ${sheetName} ===`);
