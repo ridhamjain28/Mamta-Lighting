@@ -4,7 +4,7 @@ import { useToastStore } from '../store/useToastStore';
 import {
   Plus, ChevronLeft, Check, Pencil, Trash2,
   ClipboardList, Loader2, Clock, CheckCircle2, Circle,
-  Package, Boxes, Search
+  Package, Boxes, Search, RotateCcw
 } from 'lucide-react';
 import ManufacturingProducts from './ManufacturingProducts';
 import RawComponents from './RawComponents';
@@ -237,6 +237,9 @@ export default function ManufacturingPortal({ role }) {
         .from('products')
         .select(`
           *,
+          brands (
+            name
+          ),
           manufacturing_product_components (
             id,
             default_qty,
@@ -480,6 +483,65 @@ export default function ManufacturingPortal({ role }) {
     }
   }
 
+  async function handleUnapproveJob(job) {
+    if (!job.approved) return;
+    try {
+      // 1. Fetch all job components
+      const { data: comps, error: fetchErr } = await supabase
+        .from('manufacturing_job_components')
+        .select('*')
+        .eq('job_id', job.id);
+      
+      if (fetchErr) throw fetchErr;
+
+      const collectedComps = (comps || []).filter(c => c.is_collected && c.component_id);
+
+      if (collectedComps.length > 0) {
+        // 2. Fetch current stock of these raw components
+        const componentIds = collectedComps.map(c => c.component_id);
+        const { data: rawComps, error: rawErr } = await supabase
+          .from('raw_components')
+          .select('id, name, stock_qty')
+          .in('id', componentIds);
+        
+        if (rawErr) throw rawErr;
+
+        // Restore stock for each
+        for (const comp of collectedComps) {
+          const rc = rawComps.find(x => x.id === comp.component_id);
+          if (rc) {
+            const qtyUsed = Number(comp.actual_qty) || Number(comp.planned_qty) || 1;
+            const newStock = (rc.stock_qty || 0) + qtyUsed;
+            
+            const { error: updErr } = await supabase
+              .from('raw_components')
+              .update({ stock_qty: newStock })
+              .eq('id', rc.id);
+            
+            if (updErr) throw updErr;
+          }
+        }
+      }
+
+      // 3. Mark the job as not approved
+      const { error: jobErr } = await supabase
+        .from('manufacturing_jobs')
+        .update({ approved: false })
+        .eq('id', job.id);
+      
+      if (jobErr) throw jobErr;
+
+      // 4. Update local state
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, approved: false } : j));
+      if (selectedJob?.id === job.id) setSelectedJob(prev => ({ ...prev, approved: false }));
+      addToast(`Approval undone and stock restored for "${job.title}"!`, 'success');
+      fetchRawComponents();
+    } catch (err) {
+      console.error('Unapprove error:', err);
+      addToast('Failed to undo approval: ' + err.message, 'error');
+    }
+  }
+
   async function handleLoadProductTemplate() {
     if (!selectedMfgProduct || !selectedJob) return;
     const comps = selectedMfgProduct.manufacturing_product_components || [];
@@ -593,11 +655,12 @@ export default function ManufacturingPortal({ role }) {
     });
 
     return (
-      <div className="space-y-5">
+      <div className="space-y-6">
         {finalGroups.map((g, idx) => (
-          <div key={idx} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-            <div className="flex items-center justify-between border-b border-gray-150 pb-3 mb-4">
-              <div className="flex items-center gap-2">
+          <div key={idx} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+            {/* Sticky "Frozen Pane" Product Header */}
+            <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-md border-b border-gray-200 px-5 py-3.5 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={async () => {
                     const allCollected = g.components.length > 0 && g.components.every(c => c.is_collected);
@@ -615,182 +678,215 @@ export default function ManufacturingPortal({ role }) {
                   className={`flex-none w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
                     g.components.length > 0 && g.components.every(c => c.is_collected) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 hover:border-blue-400 bg-white'
                   }`}
+                  title="Toggle all components in this product"
                 >
                   {g.components.length > 0 && g.components.every(c => c.is_collected) && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />}
                 </button>
-                <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600">
+                <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600 flex-none">
                   <Package className="w-4.5 h-4.5" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-905 text-sm sm:text-base leading-tight">{g.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-tight truncate">{g.name}</h3>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">Product Recipe</p>
                 </div>
               </div>
               {g.qty !== null && (
-                <span className="bg-blue-50 text-blue-800 text-[11px] font-bold px-2.5 py-1 rounded-full border border-blue-100">
-                  Build Qty: {g.qty}
-                </span>
+                <div className="flex-none pl-3">
+                  <span className="bg-blue-100 text-blue-900 text-xs font-extrabold px-3 py-1.5 rounded-xl border border-blue-200 shadow-2xs whitespace-nowrap">
+                    Total Build Qty: {g.qty}
+                  </span>
+                </div>
               )}
             </div>
 
-            {g.components.length === 0 ? (
-              <div className="space-y-3">
-                <div className="text-center py-3 text-gray-400 text-xs italic">
-                  No components linked to this product in the job.
+            <div className="p-5">
+              {g.components.length === 0 ? (
+                <div className="space-y-3">
+                  <div className="text-center py-4 text-gray-400 text-xs italic">
+                    No components linked to this product in the job.
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Add a note for this product..."
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    defaultValue={parseJobNotes(selectedJob.notes).productNotes[g.key] || ''}
+                    onBlur={event => handleUpdateProductNote(g.key, event.target.value)}
+                  />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Add a note for this product..."
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  defaultValue={parseJobNotes(selectedJob.notes).productNotes[g.key] || ''}
-                  onBlur={event => handleUpdateProductNote(g.key, event.target.value)}
-                />
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Components required
-                </p>
-                {g.components.map(comp => (
-                  <div
-                    key={comp.id}
-                    className={`rounded-xl border p-4 transition-all duration-300 ${
-                      comp.is_collected ? 'border-green-200 bg-green-50/30 opacity-70' : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <button
-                        onClick={() => handleToggleCollected(comp)}
-                        className={`flex-none mt-0.5 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                          comp.is_collected ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400'
-                        }`}
-                      >
-                        {comp.is_collected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />}
-                      </button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                    Components Required
+                  </p>
+                  {g.components.map(comp => (
+                    <div
+                      key={comp.id}
+                      className={`rounded-xl border p-4 transition-all duration-300 ${
+                        comp.is_collected ? 'border-green-200 bg-green-50/30 opacity-70' : 'border-gray-200 bg-white shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <button
+                          onClick={() => handleToggleCollected(comp)}
+                          className={`flex-none mt-1 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                            comp.is_collected ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400 bg-white'
+                          }`}
+                        >
+                          {comp.is_collected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />}
+                        </button>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`font-semibold text-sm ${comp.is_collected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                            {comp.component_name} - {comp.planned_qty}{g.qty ? ` (${g.qty}x${Number((comp.planned_qty / g.qty).toFixed(2))})` : ''}
-                          </p>
-                          <button
-                            onClick={() => handleDeleteComponent(comp.id)}
-                            className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-none"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-3 mt-2 flex-wrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-gray-500">Planned:</span>
-                            <input
-                              type="number"
-                              min="1"
-                              className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
-                              defaultValue={comp.planned_qty}
-                              onBlur={e => handleUpdateQtyNote(comp, 'planned_qty', e.target.value)}
-                            />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              {/* 1. Name */}
+                              <p className={`font-bold text-sm ${comp.is_collected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                {comp.component_name}
+                              </p>
+                              {/* 2. Brand badge */}
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                                  Brand: {comp.brand || comp.raw_components?.brand || 'Standard'}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteComponent(comp.id)}
+                              className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-none"
+                              title="Delete component"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-gray-500">Actual:</span>
-                            <input
-                              type="number"
-                              min="0"
-                              className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
-                              defaultValue={comp.actual_qty ?? ''}
-                              placeholder="—"
-                              onBlur={e => handleUpdateQtyNote(comp, 'actual_qty', e.target.value)}
-                            />
-                          </div>
-                        </div>
 
-                        <input
-                          type="text"
-                          placeholder="Add a note (e.g. took extra backup)..."
-                          className="mt-2 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          defaultValue={displayComponentNote(comp)}
-                          onBlur={e => handleUpdateQtyNote(comp, 'note', e.target.value)}
-                        />
+                          {/* 3. Quantity: Planned & Actual */}
+                          <div className="flex items-center gap-3 mt-3 flex-wrap">
+                            <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-150">
+                              <span className="text-xs font-semibold text-gray-500">Planned:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                className="w-16 bg-white border border-gray-200 rounded-md px-1.5 py-0.5 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-gray-800"
+                                defaultValue={comp.planned_qty}
+                                onBlur={e => handleUpdateQtyNote(comp, 'planned_qty', e.target.value)}
+                              />
+                              {g.qty ? (
+                                <span className="text-[10px] text-gray-400 font-mono">
+                                  ({g.qty}×{Number((comp.planned_qty / g.qty).toFixed(2))})
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-150">
+                              <span className="text-xs font-semibold text-gray-500">Actual:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                className="w-16 bg-white border border-gray-200 rounded-md px-1.5 py-0.5 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-gray-800"
+                                defaultValue={comp.actual_qty ?? ''}
+                                placeholder="—"
+                                onBlur={e => handleUpdateQtyNote(comp, 'actual_qty', e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* 4. Note box */}
+                          <input
+                            type="text"
+                            placeholder="Add a note (e.g. taken from batch #2)..."
+                            className="mt-3 w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-gray-400"
+                            defaultValue={displayComponentNote(comp)}
+                            onBlur={e => handleUpdateQtyNote(comp, 'note', e.target.value)}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                <input
-                  type="text"
-                  placeholder="Add a note for this product..."
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  defaultValue={parseJobNotes(selectedJob.notes).productNotes[g.key] || ''}
-                  onBlur={event => handleUpdateProductNote(g.key, event.target.value)}
-                />
-              </div>
-            )}
+                  ))}
+                  <input
+                    type="text"
+                    placeholder="Add a note for this product..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all mt-2"
+                    defaultValue={parseJobNotes(selectedJob.notes).productNotes[g.key] || ''}
+                    onBlur={event => handleUpdateProductNote(g.key, event.target.value)}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         ))}
 
         {/* Standalone parts always stay below every quoted/loaded product. */}
         {extraComps.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-            <div className="flex items-center justify-between border-b border-gray-150 pb-3 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="bg-slate-100 p-1.5 rounded-lg text-slate-600">
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+            <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-md border-b border-gray-200 px-5 py-3.5 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="bg-slate-100 p-1.5 rounded-lg text-slate-600 flex-none">
                   <Boxes className="w-4.5 h-4.5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-bold text-gray-905 text-sm sm:text-base leading-tight">Extra Components</h3>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">Not tied to a quoted product</p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="p-5 space-y-3">
               {extraComps.map(comp => (
                 <div
                   key={comp.id}
                   className={`rounded-xl border p-4 transition-all duration-300 ${
-                    comp.is_collected ? 'border-green-200 bg-green-50/30 opacity-70' : 'border-gray-200 bg-white'
+                    comp.is_collected ? 'border-green-200 bg-green-50/30 opacity-70' : 'border-gray-200 bg-white shadow-2xs'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3.5">
                     <button
                       onClick={() => handleToggleCollected(comp)}
-                      className={`flex-none mt-0.5 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                        comp.is_collected ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400'
+                      className={`flex-none mt-1 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                        comp.is_collected ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400 bg-white'
                       }`}
                     >
                       {comp.is_collected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />}
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`font-semibold text-sm ${comp.is_collected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                          {comp.component_name}
-                        </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          {/* 1. Name */}
+                          <p className={`font-bold text-sm ${comp.is_collected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                            {comp.component_name}
+                          </p>
+                          {/* 2. Brand badge */}
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                              Brand: {comp.brand || comp.raw_components?.brand || 'Standard'}
+                            </span>
+                          </div>
+                        </div>
                         <button
                           onClick={() => handleDeleteComponent(comp.id)}
                           className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-none"
+                          title="Delete component"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-3 mt-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-gray-500">Planned:</span>
+                      {/* 3. Quantity: Planned & Actual */}
+                      <div className="flex items-center gap-3 mt-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-150">
+                          <span className="text-xs font-semibold text-gray-500">Planned:</span>
                           <input
                             type="number"
                             min="1"
-                            className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                            className="w-16 bg-white border border-gray-200 rounded-md px-1.5 py-0.5 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-gray-800"
                             defaultValue={comp.planned_qty}
                             onBlur={e => handleUpdateQtyNote(comp, 'planned_qty', e.target.value)}
                           />
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-gray-500">Actual:</span>
+                        <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-150">
+                          <span className="text-xs font-semibold text-gray-500">Actual:</span>
                           <input
                             type="number"
                             min="0"
-                            className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                            className="w-16 bg-white border border-gray-200 rounded-md px-1.5 py-0.5 text-xs text-center focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-gray-800"
                             defaultValue={comp.actual_qty ?? ''}
                             placeholder="—"
                             onBlur={e => handleUpdateQtyNote(comp, 'actual_qty', e.target.value)}
@@ -798,10 +894,11 @@ export default function ManufacturingPortal({ role }) {
                         </div>
                       </div>
 
+                      {/* 4. Note box */}
                       <input
                         type="text"
                         placeholder="Add a note..."
-                        className="mt-2 w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-650 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        className="mt-3 w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-gray-400"
                         defaultValue={displayComponentNote(comp)}
                         onBlur={e => handleUpdateQtyNote(comp, 'note', e.target.value)}
                       />
@@ -818,66 +915,7 @@ export default function ManufacturingPortal({ role }) {
 
   // ─── JOB DETAIL VIEW ──────────────────────────────────────────────────────
   if (selectedJob) {
-    const quoteProductsForProgress = Object.values(quoteItems.reduce((products, qi) => {
-      const id = qi.products?.id || qi.product_id;
-      const name = qi.products?.name || 'Unknown Product';
-      const key = id ? `product-${id}` : `quote-${normalizeProductName(name)}`;
-      if (!products[key]) products[key] = { key, name };
-      return products;
-    }, {}));
-    const quoteProgressKeyByName = new Map(quoteProductsForProgress.map(product => [normalizeProductName(product.name), product.key]));
-
-    // Group the components to calculate progress by products completed
-    const groupedForProgress = {};
-    jobComponents.forEach(comp => {
-      let productKey = comp.product_id ? `product-${comp.product_id}` : null;
-      let prodName = comp.product_name;
-      if (!productKey && !prodName && comp.note && comp.note.startsWith('Auto-linked from product "')) {
-        const match = comp.note.match(/Auto-linked from product "([^"]+)"/);
-        if (match) prodName = match[1];
-      }
-      if (!productKey && prodName) {
-        productKey = quoteProgressKeyByName.get(normalizeProductName(prodName)) || `manual-${normalizeProductName(prodName)}`;
-      }
-      if (productKey) {
-        if (!groupedForProgress[productKey]) groupedForProgress[productKey] = [];
-        groupedForProgress[productKey].push(comp);
-      }
-    });
-
-    const finalGroupsForProgress = [];
-    if (quoteProductsForProgress.length > 0) {
-      quoteProductsForProgress.forEach(qp => {
-        finalGroupsForProgress.push({
-          name: qp.name,
-          components: groupedForProgress[qp.key] || []
-        });
-        delete groupedForProgress[qp.key];
-      });
-    }
-    Object.entries(groupedForProgress).forEach(([key, components]) => {
-      finalGroupsForProgress.push({
-        name: components[0]?.product_name || key,
-        components
-      });
-    });
-
-    const totalProducts = finalGroupsForProgress.length;
-    const completedProducts = finalGroupsForProgress.filter(g => g.components.length > 0 && g.components.every(c => c.is_collected)).length;
-
     const totalCount = jobComponents.length;
-    const collectedCount = jobComponents.filter(c => c.is_collected).length;
-
-    let progressPct = 0;
-    let progressLabel = '';
-    if (totalProducts > 0) {
-      progressPct = Math.round((completedProducts / totalProducts) * 100);
-      progressLabel = `${completedProducts}/${totalProducts} products completed`;
-    } else {
-      progressPct = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0;
-      progressLabel = `${collectedCount}/${totalCount} parts collected`;
-    }
-
     const cfg = STATUS_CONFIG[selectedJob.status] || STATUS_CONFIG['Not Started'];
 
     return (
@@ -930,23 +968,7 @@ export default function ManufacturingPortal({ role }) {
 
         {/* DETAILS SECTION */}
         <div className="flex-1 p-4 space-y-4">
-          {/* Progress bar */}
-          {(totalProducts > 0 || jobComponents.length > 0) && (
-            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-xs">
-              <div className="flex justify-between text-xs mb-2">
-                <span className="font-bold text-gray-700">Completion Status</span>
-                <span className="font-extrabold text-gray-900">{progressLabel}</span>
-              </div>
-              <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-green-500 rounded-full transition-all duration-500"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1.5 text-right font-medium">{progressPct}% Complete</p>
-            </div>
-          )}
-          {selectedJob.status === 'Completed' && (
+          {selectedJob.status === 'Completed' && role === 'admin' && (
             <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-in fade-in duration-200 ${selectedJob.approved ? 'bg-emerald-50/30 border-emerald-200' : 'bg-orange-50/30 border-orange-200'}`}>
               <div className="min-w-0 flex-1">
                 <p className={`text-xs font-bold ${selectedJob.approved ? 'text-emerald-800' : 'text-orange-850'}`}>Admin Approval & Stock Deduction</p>
@@ -957,20 +979,25 @@ export default function ManufacturingPortal({ role }) {
                 </p>
               </div>
               {selectedJob.approved ? (
-                <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-105 border border-emerald-250 text-emerald-800 rounded-xl text-xs font-bold shrink-0 self-start sm:self-auto">
-                  <Check className="w-3.5 h-3.5" strokeWidth={3} /> Approved & Deducted
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-105 border border-emerald-250 text-emerald-800 rounded-xl text-xs font-bold shrink-0">
+                    <Check className="w-3.5 h-3.5" strokeWidth={3} /> Approved & Deducted
+                  </div>
+                  <button
+                    onClick={() => handleUnapproveJob(selectedJob)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0"
+                    title="Undo Approval and restore raw component stock"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Undo Approval (Restore Stock)
+                  </button>
                 </div>
-              ) : role === 'admin' ? (
+              ) : (
                 <button
                   onClick={() => handleApproveJob(selectedJob)}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-xs shrink-0 self-start sm:self-auto"
                 >
                   Approve & Deduct Stock
                 </button>
-              ) : (
-                <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-105 border border-orange-250 text-orange-800 rounded-xl text-xs font-bold shrink-0 self-start sm:self-auto">
-                  Pending Admin Approval
-                </div>
               )}
             </div>
           )}
@@ -1184,18 +1211,16 @@ export default function ManufacturingPortal({ role }) {
           >
             <ClipboardList className="w-4.5 h-4.5" /> Jobs
           </button>
-          {role === 'admin' && (
-            <button
-              onClick={() => setPortalTab('completed')}
-              className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
-                portalTab === 'completed'
-                  ? 'border-blue-600 text-blue-600 font-bold'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <CheckCircle2 className="w-4.5 h-4.5" /> Completed Jobs
-            </button>
-          )}
+          <button
+            onClick={() => setPortalTab('completed')}
+            className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              portalTab === 'completed'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <CheckCircle2 className="w-4.5 h-4.5" /> Completed Jobs
+          </button>
           <button
             onClick={() => setPortalTab('products')}
             className={`px-3 py-3.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
@@ -1290,7 +1315,7 @@ export default function ManufacturingPortal({ role }) {
         </div>
       )}
 
-      {portalTab === 'completed' && role === 'admin' && (
+      {portalTab === 'completed' && (
         <div className="flex-1 p-4 space-y-3">
           {loading ? (
             <div className="flex justify-center py-12">
@@ -1339,7 +1364,7 @@ export default function ManufacturingPortal({ role }) {
                       Sent: {new Date(job.created_at).toLocaleDateString('en-GB')} {new Date(job.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <div className="flex items-center gap-2">
-                      {!job.approved && (
+                      {!job.approved && role === 'admin' && (
                         <button
                           onClick={() => handleApproveJob(job)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3.5 py-1.5 rounded-xl transition-all shadow-xs"

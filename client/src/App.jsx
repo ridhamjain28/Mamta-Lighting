@@ -17,6 +17,8 @@ import RawComponents from './components/RawComponents';
 import ProductsDatabase from './components/ManufacturingProducts';
 import { History as HistoryIcon, ArrowLeftRight, PackageSearch, ToggleLeft, Zap, FileText, Settings, GitCompare, Eye, Users, ClipboardList, Boxes, LogOut, Package } from 'lucide-react';
 import { useQuoteStore } from './store/useQuoteStore';
+import { useToastStore } from './store/useToastStore';
+import { supabase } from './supabase';
 
 function App() {
   const [role, setRole] = useState(() => sessionStorage.getItem('role') || null);
@@ -28,6 +30,26 @@ function App() {
     const apiUrl = import.meta.env.VITE_API_URL;
     if (apiUrl) {
       fetch(`${apiUrl}/api/keepalive`).catch(() => {});
+    }
+
+    // Global Realtime listener for Completed Jobs (Visual Alert Only)
+    let jobsChannel = null;
+    try {
+      if (supabase && typeof supabase.channel === 'function') {
+        jobsChannel = supabase
+          .channel('global_jobs_completion_alert')
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'manufacturing_jobs' }, (payload) => {
+            const newJob = payload?.new;
+            const oldJob = payload?.old;
+            if (newJob && newJob.status === 'Completed' && oldJob?.status !== 'Completed') {
+              const by = newJob.completed_by ? ` by ${newJob.completed_by}` : '';
+              useToastStore.getState().addToast(`Job Completed: "${newJob.title}" has been completed${by}!`, 'success');
+            }
+          })
+          .subscribe();
+      }
+    } catch (err) {
+      console.warn('Realtime channel subscription error:', err);
     }
 
     const handleKeyDown = (e) => {
@@ -45,6 +67,11 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('wheel', handleWheel);
+      if (jobsChannel && supabase?.removeChannel) {
+        try {
+          supabase.removeChannel(jobsChannel);
+        } catch (_) {}
+      }
     };
   }, []);
 
@@ -86,7 +113,12 @@ function App() {
 
   // ── PIN GATE ────────────────────────────────────────────────────────────
   if (!role) {
-    return <PinGate onAuth={handleAuth} />;
+    return (
+      <>
+        <PinGate onAuth={handleAuth} />
+        <ToastContainer />
+      </>
+    );
   }
 
   // ── EMPLOYEE VIEW: Manufacturing only ────────────────────────────────────
@@ -120,7 +152,7 @@ function App() {
   }
 
   // ── ADMIN VIEW ───────────────────────────────────────────────────────────
-  const isImageSystem = systemMode === 'Image Quote';
+  const isImageSystem = systemMode === 'Lighting Quote' || systemMode === 'Image Quote';
   const isSwitchSystem = systemMode === 'Switch Quote';
   const isWireSystem = systemMode === 'Wire Quote';
   const isCustomerDb = systemMode === 'Customer Database';
@@ -152,6 +184,7 @@ function App() {
         <div className="flex-1 overflow-auto">
           <ManufacturingPortal role="admin" />
         </div>
+        <ToastContainer />
       </div>
     );
   }
@@ -160,6 +193,7 @@ function App() {
   if (!systemMode) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-6 relative">
+        <ToastContainer />
         <div className="max-w-6xl w-full flex justify-end mb-6">
           <button
             onClick={handleLogout}
@@ -180,13 +214,13 @@ function App() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Image Quote */}
-            <button onClick={() => handleSelectSystem('Image Quote')} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full">
+            {/* Lighting Quote */}
+            <button onClick={() => handleSelectSystem('Lighting Quote')} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between h-full">
               <div>
                 <div className="bg-blue-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <PackageSearch className="w-8 h-8 text-blue-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Image Quotation</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Lighting Quotation</h2>
                 <p className="text-gray-500 mb-6 text-base">Build visual quotations with product images for clients.</p>
               </div>
               <span className="text-blue-600 font-semibold flex items-center gap-2 text-base group-hover:gap-3 transition-all mt-auto">Enter System →</span>
@@ -371,14 +405,12 @@ function App() {
                 >
                   <FileText className="w-4 h-4" /> New Quote
                 </button>
-                {isImageSystem && (
-                  <button
-                    onClick={() => setTimeout(() => startTransition(() => setActiveTab('preview')), 0)}
-                    className={`px-3 py-2 rounded-md font-medium text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                  >
-                    <Eye className="w-4 h-4" /> Preview
-                  </button>
-                )}
+                <button
+                  onClick={() => setTimeout(() => startTransition(() => setActiveTab('preview')), 0)}
+                  className={`px-3 py-2 rounded-md font-medium text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  <Eye className="w-4 h-4" /> Preview
+                </button>
                 <button
                   onClick={() => setTimeout(() => startTransition(() => setActiveTab('history')), 0)}
                   className={`px-3 py-2 rounded-md font-medium text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
@@ -469,7 +501,7 @@ function App() {
           <div className="w-full h-full flex flex-col"><SwitchComparePage /></div>
         )}
 
-        {activeTab === 'preview' && isImageSystem && (
+        {activeTab === 'preview' && systemMode !== 'Customer Database' && (
           <div className="w-full h-full flex flex-col overflow-y-auto"><QuotePreview /></div>
         )}
 

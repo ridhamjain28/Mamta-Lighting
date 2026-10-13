@@ -1,0 +1,220 @@
+MAMTA LIGHTING - QUOTATION MANAGEMENT SYSTEM
+DBMS Project Documentation
+============================================================
+
+
+OVERVIEW OF THE PROJECT
+
+This project is a full-stack web application built for Mamta Lighting, a real electrical goods store located in Bardoli, Gujarat. The purpose of the system is to replace the manual, paper-based process of writing quotations for customers and replace it with a digital, database-driven solution. A quotation is basically a formal price estimate you give to a customer before they place an order. So instead of handwriting prices on paper, the shop staff now opens this web app, selects products, enters a customer name, and clicks a button to generate a professional PDF quotation.
+
+The system is not just a simple quotation generator. It has grown into a fairly complete business management tool that covers product catalogs, customer records, manufacturing job tracking, and stock/inventory of raw components. But the core use case that everything is built around is: create a quotation, save it, and send it to the customer.
+
+
+TECHNOLOGY STACK
+
+The application is split into two main parts. The frontend (what users see in the browser) is built using React, which is a JavaScript library for building user interfaces. The backend (the server that does the heavy work) is built using Node.js with Express, which is a framework for handling HTTP requests.
+
+The database is PostgreSQL, which is a relational database. The database is not hosted locally. It is hosted on a cloud service called Supabase. Supabase wraps PostgreSQL and adds extra features like a REST API, real-time subscriptions, file storage, and authentication. The Node.js server also connects to Supabase using a special service role key that has higher privileges than a regular user.
+
+For generating the PDF quotation documents, the server uses a tool called Puppeteer, which is a headless browser that can open a webpage and convert it into a PDF file. The server builds an HTML page with all the quotation details and then Puppeteer converts it to a PDF, which is then sent directly back to the browser as a downloadable file.
+
+
+THE DATABASE IN DETAIL
+
+The heart of this project from a DBMS perspective is the PostgreSQL database running on Supabase. All persistent data in this application lives in this database. Below is a detailed explanation of every table, what it stores, and how they relate to each other.
+
+
+Table 1: products
+
+This is the most central and frequently queried table in the entire system. Every product that can appear in a quotation must exist in this table. The table stores products from three different business categories: lighting products (like LED lights, strips, panels), switch products (like modular switches from Havells, Crabtree, etc.), and wire products (like Finolex house wires).
+
+The columns in this table include id (an integer, the primary key), name (the product name as text), model_number (the catalog or model code), base_price (the MRP or list price as a number), unit_type (whether the product is sold per piece or per metre), primary_image_url (a URL pointing to the product image stored in Supabase storage), category_id (a foreign key linking to the categories table), brand_id (a foreign key linking to the brands table), product_type (a text field that says whether this is a lighting, switch, or wire product), sub_brand (used in switches to specify the series, like "Crabtree Athena"), color (used for switch products that come in different colors), selected_wattage (used for lighting products that come in multiple wattage options), show_in_image_quote (a boolean that controls visibility in the lighting quote system), and show_in_manufacturing (a boolean that marks if this product can be manufactured in-house).
+
+The products table also has columns that were added later as the application evolved, which is a common real-world DBMS scenario where the schema grows over time using ALTER TABLE statements.
+
+
+Table 2: categories
+
+This is a simple lookup or reference table. Its purpose is to group products into logical categories so that the catalog screen can display them in an organized way. For example, categories might include things like Downlights, Panel Lights, Strip Lights, Modular Switches, House Wires, etc.
+
+The relationship between categories and products is a one-to-many relationship. One category can have many products, but each product belongs to exactly one category. In relational database terms, the products table holds a foreign key called category_id that references the id column in the categories table.
+
+
+Table 3: brands
+
+Similar to categories, this is another lookup table. It stores the names of brands like Havells, Norisys, Beton, Crabtree, and Finolex. The products table references this table through a foreign key called brand_id.
+
+The relationship between brands and products is again one-to-many. One brand can make many products, but each product belongs to one brand. The brands table is also joined when building a quotation PDF, because the brand name is displayed next to product names for the customer.
+
+
+Table 4: quotations
+
+This is the master record table for every quotation ever generated in the system. Every time someone builds a quote and saves or generates a PDF, a row is inserted into this table. Think of it as the header of an invoice.
+
+The columns include id (UUID, the primary key), quote_number (a unique human-readable reference like "QT-839201"), customer_name (text), phone_number (text), project_name (text, optional, like "Sharma Residence - Living Room"), subtotal (the sum of all item line totals before GST), tax_amount (the 18 percent GST amount, if included), grand_total (the final amount the customer has to pay), quote_type (a text field storing values like Lighting Quote, Switch Quote, Wire Quote, or Comparison, which determines how the PDF is formatted), status (Draft or Confirmed), pdf_url (a link to the PDF stored in Supabase storage), is_deleted (a boolean for soft deletes, so deleted quotes go to a trash bin and are not permanently removed), created_at (timestamp of creation), and updated_at (timestamp of last modification).
+
+The quotations table does not store the individual product line items. Those are stored separately in quotation_items, described below. This is a classic normalized database design: the quotation header (customer, totals, type, dates) is in one table, and the detail rows (which products, quantities, prices) are in another.
+
+
+Table 5: quotation_items
+
+This is the detail or line-item table for every quotation. Each row in this table represents one product line in a quotation. If a quotation has 10 products, there will be 10 rows in this table for that quotation.
+
+The columns include id, quotation_id (a foreign key referencing the quotations table, establishing which quotation this line belongs to), product_id (a foreign key referencing the products table, identifying which product is on this line), quantity (how many units the customer wants), base_price (the MRP at the time of quotation creation, stored for historical accuracy), discount_override (the percentage discount applied to this specific line item, if any), custom_price_override (if the staff wants to price a product differently from its base price, they enter a custom price here), final_unit_price (the calculated net price per unit after applying the discount), line_total (final_unit_price multiplied by quantity), and description (any extra custom notes or description the staff wants to add for this item on the PDF).
+
+The reason base_price is saved in quotation_items even though it already exists in products is intentional. If the price of a product changes in the products table next month, the historical quotation should still show what the price was at the time it was created. This is a common DBMS design consideration called preserving point-in-time data.
+
+
+Table 6: raw_components
+
+This table is part of the manufacturing module. Mamta Lighting does not just sell products from other brands. They also assemble some lighting products in-house. For example, they might put together an LED panel using raw materials like an LED driver, LED chips, an aluminum housing body, and diffuser glass. Each of these individual parts is a raw component.
+
+The columns include id (UUID, primary key), name (name of the component, like LED Driver 20W or Aluminum Housing), description (optional notes about the component), stock_qty (how many units of this component are currently in stock), sort_order (a number to control display order), and created_at.
+
+The raw_components table has no direct foreign key pointing to products. Instead, the link is made through the manufacturing_product_components table described below.
+
+
+Table 7: manufacturing_product_components
+
+This is a junction or bridge table that links products to raw_components. It describes the bill of materials (BOM) for each manufactured product. For example, product "LED Panel 12W" might require 1 LED driver, 4 LED chips, 1 housing body, and 1 diffuser. Each of those four requirements is one row in this table.
+
+The columns include id, product_id (integer foreign key to products), component_id (UUID foreign key to raw_components), and default_qty (how many units of this component are needed per product, defaulting to 1).
+
+This table represents a many-to-many relationship between products and raw_components. One product needs many raw components, and one raw component might be used in many different products. The junction table resolves this many-to-many relationship into two one-to-many relationships, which is standard relational database design.
+
+
+Table 8: manufacturing_jobs
+
+When a manufacturing order comes in (for example, someone orders 5 units of a custom LED panel), the admin creates a manufacturing job. This table stores those jobs.
+
+The columns include id (UUID, primary key), quotation_id (optional text reference linking back to a quotation if applicable), title (a short description of the job), notes (any extra instructions for the worker), status (values like Not Started, In Progress, or Completed), completed_by (the name of the employee who completed the job), approved (a boolean that the admin toggles when they inspect and approve the finished job), created_at, and updated_at.
+
+The manufacturing_jobs table supports real-time updates via Supabase Realtime. This means when an employee changes a job status on their screen, the admin's screen immediately shows a notification without needing to refresh the page. This is done using PostgreSQL's LISTEN and NOTIFY system, which Supabase exposes as websocket subscriptions.
+
+
+Table 9: manufacturing_job_components
+
+This is the per-job component checklist. When a manufacturing job is created, the system looks up the bill of materials for each product in that job (from manufacturing_product_components) and creates rows in this table as a checklist for the employee to follow.
+
+The columns include id, job_id (UUID foreign key to manufacturing_jobs), component_id (optional UUID reference to raw_components), component_name (the name of the component, stored as text for flexibility even if the raw component is later deleted), planned_qty (how many units of this component are needed for the job), actual_qty (how many were actually used), note (any per-component notes), product_name (which product this component belongs to, for grouping in the UI), product_id (integer reference to products for grouping), is_collected (a boolean the employee ticks when they have physically collected this component from stock), sort_order, and created_at.
+
+When a job is marked as approved by the admin, the system deducts the actual_qty of each component from the stock_qty in raw_components. This is where the database is doing meaningful transactional work: reading from one table and updating another in a coordinated way.
+
+
+Table 10: app_settings
+
+This is a simple key-value configuration table. It currently stores the hashed PIN codes for logging in as admin or employee. The admin PIN and employee PIN are stored as SHA-256 hashed text values (not plain text, which is a basic security practice). When someone enters a PIN on the login screen, the frontend hashes it and compares the hash to what is in this table.
+
+The columns are just key (text, primary key) and value (text). This table is small but important because it controls who can access the system.
+
+
+THE ENTITY RELATIONSHIP SUMMARY
+
+To summarize the relationships between all the main tables:
+
+brands has a one-to-many relationship with products. One brand like Havells can have hundreds of products. Each product belongs to exactly one brand.
+
+categories has a one-to-many relationship with products. One category can have many products. Each product belongs to exactly one category.
+
+quotations has a one-to-many relationship with quotation_items. One quotation can have many line items. Each quotation_item belongs to exactly one quotation.
+
+products has a one-to-many relationship with quotation_items. One product can appear in many different quotations over time. Each quotation_item row references one product.
+
+products has a many-to-many relationship with raw_components, resolved by the junction table manufacturing_product_components. This lets you define which raw components are needed to build any given product.
+
+manufacturing_jobs has a one-to-many relationship with manufacturing_job_components. One job has many component checklist rows.
+
+
+HOW A QUOTATION IS CREATED: END TO END FLOW
+
+This section walks through exactly what happens in the database and application when a staff member creates and generates a quotation.
+
+Step 1: The staff member opens the browser and sees the PIN login screen. They enter the admin PIN. The frontend hashes the PIN and sends it to Supabase, which checks it against the app_settings table. If it matches, access is granted and the role is stored in the browser's session storage.
+
+Step 2: The admin selects a quote system, for example Lighting Quote. The application fetches all products from the products table where the product_type matches the lighting system and where show_in_image_quote is true. It also fetches all categories and brands using JOIN-style queries so it can display products organized by brand and category in the catalog.
+
+Step 3: The staff member clicks on products to add them to the cart. This does not touch the database at all. The cart is purely in-memory, held in the browser's application state using a library called Zustand. No database writes happen while browsing the catalog.
+
+Step 4: The staff member can adjust quantities, apply per-item discount percentages, or override the price entirely. All of this is still only in memory.
+
+Step 5: When the customer details are entered and the quote is confirmed, the system calls saveQuoteToDatabase. This function first inserts a row into the quotations table with the customer name, phone, project name, totals, and quote type. Supabase returns the newly created row including its generated UUID id. Then the function inserts all the cart items as rows into the quotation_items table, each row referencing the quotation's UUID.
+
+Step 6: If the staff member clicks Generate PDF, the frontend sends all the quotation data (items, prices, customer name, totals) to the backend Express server via an HTTP POST request to the /api/quotation endpoint. The server does not re-read the data from the database at this point. It receives the data in the request body, validates the math independently (recalculates subtotal, GST, and grand total on the server side and compares them to what the frontend sent to ensure they match), builds an HTML document representing the quotation layout, and then uses Puppeteer to render that HTML and produce a PDF. The PDF is sent directly to the browser as a file download.
+
+The server-side math validation is an important security consideration. Without it, a user could potentially manipulate the numbers in the browser's developer tools and send fake totals to the server. By independently recalculating on the server, the system ensures the PDF always reflects mathematically correct values.
+
+
+THE THREE QUOTE SYSTEMS AND HOW THEY DIFFER IN THE DATABASE
+
+The products table holds three distinct product types in a single table. This is a denormalized design choice where different types of records coexist in one table but use different columns. The product_type column distinguishes them: Lighting Product, Switch Product, or Wire Product.
+
+For the Lighting Quote system, the catalog shows products that have show_in_image_quote set to true. The PDF for this quote type includes a column for a product image fetched from Supabase storage. The frontend sends the public image URL to the backend server, which downloads the image and converts it to a base64 string so Puppeteer can embed it in the PDF without making external HTTP requests during rendering.
+
+For the Switch Quote system, the catalog shows only products where product_type is Switch Product. Switch products have extra columns like sub_brand and color that other products do not use. The PDF for switch quotes does not show images, but instead shows a more spreadsheet-like table with list price, discount, and net price columns.
+
+For the Wire Quote system, the same products table is queried with product_type equal to Wire Product. Wires are often sold by length rather than by piece, which is why the unit_type column exists. A wire product might have unit_type set to per metre instead of N (which stands for number or piece).
+
+All three systems save their quotations into the same quotations table and quotation_items table. The quote_type column in the quotations table is what separates them. When the History tab is loaded, it filters the quotations query by the current system mode to show only relevant history.
+
+
+SOFT DELETES AND THE TRASH BIN
+
+Rather than physically deleting rows from the quotations table when a quote is deleted, the system uses a soft delete pattern. The quotations table has an is_deleted boolean column. When the user deletes a quote, the system simply updates that column to true. The quote is not gone from the database.
+
+The History view has a Trash toggle. When looking at active quotes, the query filters where is_deleted equals false. When looking at trash, the query filters where is_deleted equals true. The staff member can restore a quote from trash, which sets is_deleted back to false. This prevents accidental permanent data loss, which is important in a business context.
+
+
+CUSTOMER DIRECTORY AND HOW IT IS DERIVED
+
+There is no separate customers table in this database. The system derives a customer directory dynamically by querying the quotations table. It selects all distinct combinations of customer_name, phone_number, and project_name from past quotations, deduplicates them in the application code, and presents the list as an autocomplete suggestion when entering a new customer.
+
+This is an interesting DBMS trade-off. A normalized database design would have a separate customers table that quotations reference. However, the current design keeps things simpler and still works well because the volume of data is small and the customer directory is read-only (it never needs to be updated separately from creating a quotation).
+
+
+THE MANUFACTURING MODULE AND REAL-TIME FEATURES
+
+The manufacturing module adds a layer of operational tracking on top of the sales system. It connects the finished product catalog (the products table) to the raw materials inventory (raw_components) through the bill of materials (manufacturing_product_components).
+
+When a manufacturing job is created, the system reads the product's recipe from manufacturing_product_components and creates a checklist in manufacturing_job_components with the required components and quantities. The employee interface (accessible via the employee PIN) shows this checklist. As the employee works through the job, they tick off each component they collect, changing is_collected to true for each row.
+
+The real-time aspect works through Supabase Realtime, which is built on top of PostgreSQL's logical replication feature. The manufacturing_jobs table is added to a special PostgreSQL publication called supabase_realtime. Supabase then broadcasts any INSERT or UPDATE events on that table over a WebSocket connection to any browser that is subscribed to that channel. In the application code, the main App.jsx component subscribes to the manufacturing_jobs channel. When a job's status changes to Completed, any admin who has the app open receives a live notification popup without needing to reload the page.
+
+
+FILE STORAGE
+
+Beyond the relational database tables, Supabase also provides an object storage service similar to AWS S3. This project uses two storage buckets.
+
+The first bucket is called product-images. It stores the product images that are uploaded via the product management interface. When an admin uploads an image for a product, the server receives the image file, uploads it to this bucket, gets back a public URL, and saves that URL to the primary_image_url column in the products table. This is the standard pattern for storing binary files in relational database systems: store the file in a file storage system and store only the URL reference in the database table.
+
+The second bucket is called quotations. This bucket is intended for storing the generated PDF files. However, looking at the current code, the PDF is generated and returned directly to the browser rather than being saved to storage, so this bucket may be used for future functionality or was used in an earlier version.
+
+
+SUPABASE ROW LEVEL SECURITY
+
+Supabase adds a Row Level Security system on top of PostgreSQL. This means you can define rules in the database itself about which users can read, insert, update, or delete which rows. The client-side JavaScript in the browser uses an anonymous public API key, which has limited access. The server-side Node.js code uses a service role key that bypasses Row Level Security and has full access. This is why image uploads and PDF generation go through the backend server rather than being done directly from the browser.
+
+
+SUMMARY OF KEY DBMS CONCEPTS DEMONSTRATED IN THIS PROJECT
+
+This project demonstrates several core database management concepts in a practical, real-world setting.
+
+The normalization concept is demonstrated by splitting data across multiple tables. Products are not duplicated for every quotation. Instead, the products table holds them once and quotation_items references them by foreign key. This is First Normal Form and Second Normal Form in practice.
+
+Referential integrity is demonstrated by the foreign key constraints. A quotation_item row cannot exist without a valid quotation_id in the quotations table. If you try to insert an item with a non-existent quotation_id, the database will reject it.
+
+The ON DELETE CASCADE constraint is used in manufacturing_product_components. If a product is deleted from the products table, all its bill-of-materials entries in manufacturing_product_components are automatically deleted too, keeping the database clean.
+
+Transactions are implicitly used by Supabase and PostgreSQL. When saving a quotation, the insert into quotations is followed by multiple inserts into quotation_items. If any of those inserts fail, the whole operation should ideally be rolled back. While the current code handles errors in application logic, PostgreSQL's underlying transaction support ensures atomicity at the statement level.
+
+Indexing is used on the manufacturing_job_components table. An index is created on the combination of job_id and product_id to speed up lookups when loading the component checklist for a specific job and product.
+
+The UUID primary key type is used for most tables except products, which uses a standard integer id. UUIDs are globally unique identifiers that can be generated without coordinating with the database server, which is useful in distributed systems.
+
+Point-in-time data preservation is demonstrated by storing base_price and discount values inside quotation_items at the time of quotation creation, rather than always reading the current price from the products table.
+
+Soft deletes are demonstrated by the is_deleted column on the quotations table, which allows data to appear deleted to the user while remaining physically present in the database.
+
+Real-time database subscriptions are demonstrated through Supabase Realtime, which leverages PostgreSQL's logical replication to push database change events to connected clients over WebSockets.
+
+
+END OF DOCUMENT

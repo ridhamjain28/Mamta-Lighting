@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 async function generateQuote(type, data) {
   try {
@@ -18,8 +19,9 @@ async function generateQuote(type, data) {
     }
 
     const buffer = await response.arrayBuffer();
-    fs.writeFileSync(`test_${type}.pdf`, Buffer.from(buffer));
-    console.log(`Success: test_${type}.pdf generated. Size: ${buffer.byteLength} bytes.`);
+    const outputPath = path.join(__dirname, `test_${type}.pdf`);
+    fs.writeFileSync(outputPath, Buffer.from(buffer));
+    console.log(`Success: ${outputPath} generated. Size: ${buffer.byteLength} bytes.`);
     return true;
   } catch (error) {
     console.error(`Fetch error for ${type}:`, error);

@@ -3,6 +3,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { useToastStore } from '../store/useToastStore';
 import { FileText, Save, CheckCircle2, Send, Loader2, ClipboardList } from 'lucide-react';
 import { supabase } from '../supabase';
+import { openWhatsAppQuotation } from '../utils/whatsapp';
 
 export default function QuoteSummary() {
   const { 
@@ -135,6 +136,17 @@ export default function QuoteSummary() {
     }
   };
 
+  const handleWhatsApp = () => {
+    const { grand_total } = getTotals();
+    openWhatsAppQuotation({
+      customerName: customer.name,
+      phoneNumber: customer.phone,
+      projectName: customer.project,
+      grandTotal: grand_total,
+      quoteType: quoteType || 'Lighting Quote'
+    });
+  };
+
   const handleBuild = async () => {
     setBuildLoading(true);
     try {
@@ -206,14 +218,6 @@ export default function QuoteSummary() {
     } finally {
       setBuildLoading(false);
     }
-  };
-
-  const handleWhatsApp = () => {
-    if (!successData?.pdfUrl) return;
-    const greeting = customer.name ? `Hello ${customer.name},\n\n` : `Hello,\n\n`;
-    const text = `${greeting}Here is your quotation. I will share the PDF file with you shortly.\n\nThank you!`;
-    const url = `https://wa.me/${customer.phone || ''}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
   };
 
   if (successData) {
@@ -340,17 +344,25 @@ export default function QuoteSummary() {
           <span>₹{Math.ceil(grand_total).toLocaleString()}</span>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button 
             onClick={handleGeneratePdf}
             disabled={isGenerating || items.length === 0}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
           >
             {isGenerating ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               'Generate PDF'
             )}
+          </button>
+          <button
+            onClick={handleWhatsApp}
+            disabled={items.length === 0}
+            className="bg-[#25D366] hover:bg-[#1ebd5a] disabled:opacity-40 text-white font-bold px-4 py-3 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-1.5 text-sm shrink-0"
+            title="Share via WhatsApp"
+          >
+            <Send className="w-4 h-4" /> WhatsApp
           </button>
         </div>
       </div>

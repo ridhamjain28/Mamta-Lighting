@@ -48,22 +48,27 @@ export default function SwitchProductManagement() {
 
   async function fetchMetadata() {
     setLoading(true);
-    const { data: brandData } = await supabase.from('brands').select('*').order('name');
-    if (brandData) setBrands(brandData);
+    const [{ data: brandData }, { data: switchProducts }, { data: subBrandData }, { data: colorData }] = await Promise.all([
+      supabase.from('brands').select('*').order('name'),
+      supabase.from('products').select('*, brands(name)').eq('product_type', 'Manual Product').order('name'),
+      supabase.from('sub_brands').select('*').order('name'),
+      supabase.from('colors').select('*').order('name')
+    ]);
 
-    const { data: subBrandData } = await supabase.from('sub_brands').select('*').order('name');
+    if (switchProducts) setProducts(switchProducts);
     if (subBrandData) setSubBrands(subBrandData);
-
-    const { data: colorData } = await supabase.from('colors').select('*').order('name');
     if (colorData) setColors(colorData);
 
-    const { data: productData } = await supabase
-      .from('products')
-      .select('*, brands(name)')
-      .eq('product_type', 'Manual Product')
-      .order('name');
-    
-    if (productData) setProducts(productData);
+    if (brandData) {
+      // Show brands that either have switch products or are Norisys/Havells
+      const switchBrandIds = new Set((switchProducts || []).map(p => p.brand_id));
+      const filteredBrands = brandData.filter(b => 
+        switchBrandIds.has(b.id) || 
+        b.name.toLowerCase() === 'norisys' || 
+        b.name.toLowerCase() === 'havells'
+      );
+      setBrands(filteredBrands);
+    }
     setLoading(false);
   }
 

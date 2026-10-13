@@ -1,5 +1,6 @@
 # Database Map
 
+
 ## Database Overview
 The system uses PostgreSQL hosted on Supabase.
 

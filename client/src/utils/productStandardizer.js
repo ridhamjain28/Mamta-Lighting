@@ -3,7 +3,8 @@ export const brandMap = {
   'Magnus': { brand: 'Havells', subBrand: 'Magnus' },
   'Signia': { brand: 'Havells', subBrand: 'Signia' },
   'Fabio': { brand: 'Havells', subBrand: 'Fabio' },
-  'Apogee': { brand: 'Havells', subBrand: 'Apogee' }
+  'Apogee': { brand: 'Havells', subBrand: 'Apogee' },
+  'Reo Elegant': { brand: 'Havells', subBrand: 'Reo Elegant' }
 };
 
 export function standardizeProductName(name) {

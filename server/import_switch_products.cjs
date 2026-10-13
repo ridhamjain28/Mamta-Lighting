@@ -5,7 +5,7 @@ const fs = require('fs');
 
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
-const FILE_PATH = 'D:\\\\Github Repos\\\\Mamta-quotation-system\\\\Switch Quotation System.xlsx';
+const FILE_PATH = 'D:\\\\Github Repos\\\\Mamta-quotation-system\\\\catalogues\\\\Switch Quotation System.xlsx';
 
 const brandMap = {
   'Norisys': { brand: 'Norisys', subBrand: '' },
